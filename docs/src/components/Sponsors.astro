@@ -29,7 +29,8 @@ const SPONSOR_URL = 'https://github.com/sponsors/Mariatta';
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 
-<aside class:list={["violet-sponsors", placement, { always }]} aria-labelledby={`violet-sponsors-${placement}`}>
+<!-- Kept out of search: the footer copy is inside the page content, on every page. -->
+<aside class:list={["violet-sponsors", placement, { always }]} aria-labelledby={`violet-sponsors-${placement}`} data-pagefind-ignore="all">
   <h2 id={`violet-sponsors-${placement}`}>Sponsors</h2>
   {
     SPONSORS.length > 0 && (
