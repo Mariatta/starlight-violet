@@ -62,7 +62,7 @@
   "engines": {
     "node": ">=22.22.0"
   },
-  "homepage": "https://mariatta.github.io/starlight-violet/",
+  "homepage": "https://mariatta.ca/starlight-violet/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mariatta/starlight-violet.git"

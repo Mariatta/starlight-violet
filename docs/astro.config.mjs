@@ -6,7 +6,7 @@ import violet from 'starlight-violet';
 import { risk } from './src/kinds/risk';
 
 export default defineConfig({
-  site: 'https://mariatta.github.io',
+  site: 'https://mariatta.ca',
   base: '/starlight-violet/',
   trailingSlash: 'always',
   integrations: [

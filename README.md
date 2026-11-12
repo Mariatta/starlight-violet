@@ -1,6 +1,6 @@
 # Violet
 
-**[Documentation](https://mariatta.github.io/starlight-violet/)** · `npm install starlight-violet`
+**[Documentation](https://mariatta.ca/starlight-violet/)** · `npm install starlight-violet`
 
 A [Starlight](https://starlight.astro.build/) plugin that renders a folder of
 Markdown notes as a documentation site, read in place: design notes, plans,
@@ -129,7 +129,7 @@ as a copy rather than a symlink (`install-links=true` in its
 ## The name
 
 Violet is named after "Violet", a song by Savage Garden. The
-[backstory](https://mariatta.github.io/starlight-violet/why-violet/)
+[backstory](https://mariatta.ca/starlight-violet/why-violet/)
 is on the documentation site.
 
 ## License
