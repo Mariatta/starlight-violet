@@ -28,7 +28,8 @@ violet({
 | `shortLabels` | `[]` | Folders whose pages the sidebar labels by file name instead of heading |
 | `acronyms` | `[]` | Words written in capitals in labels made from file names |
 | `sidebar` | `'folders'` | Build the sidebar from the notes' folders, or `false` to keep the site's own |
-| `github` | none | `{ org, repo }`: where `#12` and `other-repo#34` link |
+| `github` | none | `{ org, repo, branch }`: where `#12` and `other-repo#34` link, and the repository and branch (default `main`) source links name |
+| `sourceLink` | none | `'view'` adds a "View source" link at the foot of each page, to its Markdown file on GitHub; `'edit'` an "Edit page" link to GitHub's editor. Needs `github`, and covers files in the site's own git checkout: notes kept in another repository get no link. The "View source" label is English, and renames every edit link on the site; other languages set `page.editLink` in their translations. Links name `github.branch`, so on a preview build of another branch, a file added there 404s until it is merged |
 | `owner` | none | Whose notes these are: the default owner of a handoff's questions |
 | `sectionDescriptions` | `{}` | A one-line description per top-level folder, for its card on the landing page |
 | `files` | `false` | `{ prefix: '/notes/', private: ['hours'] }` serves the notes' other files: images, HTML mockups, CSS, scripts, JSON, CSV and plain text, never dotfiles or environment files. `types: { yaml: 'text/plain' }` adds an extension by its content type |
@@ -44,6 +45,7 @@ violet({
 | `components.MarkdownContent` | Replaces it to show each kind's header | Override it and render `starlight-violet/components/MarkdownContent.astro` inside |
 | `customCss` | Adds its styles, and the wide layout | `wide: false`; add your own after |
 | `expressiveCode` | Highlights `django` code blocks with Shiki's Jinja grammar, the closest it ships | Set `expressiveCode.shiki.langAlias.django` yourself |
+| `editLink` | Sets each page's own edit address when `sourceLink` is on. Its guide pages and generated pages never get one, `sourceLink` or not, since their files are not in your repo | `editUrl` in a page's front matter |
 | `pagination` | Leaves it alone; adds previous and next links where pages are read in order | Starlight's `pagination`, or `prev` and `next` in a page |
 
 ## Colours and logo

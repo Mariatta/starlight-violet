@@ -75,6 +75,9 @@ function withSlash(path: string): string {
 }
 
 function resolveOptions(options: VioletOptions, rootDir: string, base: string): ResolvedOptions {
+  if (options.sourceLink && !options.github) {
+    throw new Error(`${PACKAGE}: sourceLink needs the github option, to know which repository the notes are in`);
+  }
   const kinds = options.kinds ?? [];
   for (const kind of kinds) {
     if (!(KIND_NAMES as readonly string[]).includes(kind)) {
@@ -116,7 +119,8 @@ function resolveOptions(options: VioletOptions, rootDir: string, base: string): 
     shortLabels: options.shortLabels ?? [],
     acronyms: options.acronyms ?? [],
     sidebar: options.sidebar ?? 'folders',
-    github: options.github,
+    github: options.github && { ...options.github, branch: options.github.branch ?? 'main' },
+    sourceLink: options.sourceLink ?? false,
     owner: options.owner,
     sectionDescriptions: options.sectionDescriptions ?? {},
     files: options.files ? { prefix: withSlash(options.files.prefix), private: options.files.private ?? [], types: options.files.types ?? {} } : false,
@@ -153,6 +157,14 @@ export default function violet(options: VioletOptions): StarlightPlugin {
   return {
     name: PACKAGE,
     hooks: {
+      'i18n:setup'({ injectTranslations }) {
+        // Starlight's edit link says "Edit page"; a link that only shows the file says what it does.
+        // English only; a site in another language sets page.editLink in its own translations.
+        if (options.sourceLink === 'view') {
+          const label = { 'page.editLink': 'View source' };
+          injectTranslations({ en: label, 'en-US': label, 'en-GB': label });
+        }
+      },
       'config:setup'({ config, astroConfig, updateConfig, addIntegration, addRouteMiddleware, logger }) {
         const resolved = resolveOptions(options, fileURLToPath(astroConfig.root), astroConfig.base);
         setOptions(resolved);

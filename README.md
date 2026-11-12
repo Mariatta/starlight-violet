@@ -103,7 +103,8 @@ It needs Astro 7 with its default Sätteri Markdown processor and Starlight
 | `shortLabels` | `[]` | Folders whose pages the sidebar labels by file name instead of heading |
 | `acronyms` | `[]` | Words in capitals in labels made from file names |
 | `sidebar` | `'folders'` | Build the sidebar from the notes' folders, or `false` to keep the site's own |
-| `github` | none | `{ org, repo }`: where `#12` and `other-repo#34` link |
+| `github` | none | `{ org, repo, branch }`: where `#12` and `other-repo#34` link, and the branch (default `main`) source links name |
+| `sourceLink` | none | `'view'` or `'edit'`: a link at the foot of each page to its Markdown file on GitHub, for files in the site's own git checkout |
 | `owner` | none | Whose notes these are: the default owner of a handoff's questions |
 | `sectionDescriptions` | `{}` | A one-line description per top-level folder, for its card on the landing page |
 | `files` | `false` | `{ prefix: '/notes/', private: ['hours'] }` serves the notes' other files (never dotfiles or environment files; `types` adds extensions) |
