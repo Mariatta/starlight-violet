@@ -14,7 +14,7 @@ import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../ki
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
-import { idFor, isSkipped, listMarkdown, notesInSiteRepo, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
+import { idFor, isSkipped, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { headings, isSplit, pageParts, readPlan, type Plan } from './plans';
 
 /** Violet's guide pages are filed under this folder. */
@@ -267,7 +267,18 @@ export function notesLoader(): Loader {
           const id = slugify(section);
           if (taken.has(id) || (section === 'decisions' && options.kinds.includes('decision'))) continue;
           taken.set(id, `the ${section} section page`);
-          const body = section === 'planning' ? '::topics\n\n## Recently updated\n\n::planning\n' : `::folder{name=${section}}\n`;
+          // A folder of planning pages, whatever it is called, gets the planning tables.
+          const kindsHere = new Set(
+            notesPages()
+              .filter((file) => {
+                const rel = notesRel(file);
+                return rel.includes('/') ? rel.split('/')[0] === section : section === options.looseFiles;
+              })
+              .map((file) => readPage(file).data.kind)
+              .filter((kind) => kind !== undefined),
+          );
+          const planningOnly = kindsHere.size === 1 && kindsHere.has('planning');
+          const body = planningOnly ? '::topics\n\n## Recently updated\n\n::planning\n' : `::folder{name=${section}}\n`;
           const description = sectionDescription(section);
           const data = { title: words(section), ...(description && { description }), editUrl: false, sidebar: { label: 'Overview', order: 0 } };
           entries.push({

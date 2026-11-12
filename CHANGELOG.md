@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Planning pages can live in any folder. A plan's topic is the folder that holds it, wherever it is; `topic=` in `:task`, `:pr`, `::prs`, `::tasks` and `::planning` finds the planning folder of that name anywhere in the notes (or takes its path, when two folders share a name), and `::topics` groups by folder. The section page with the planning tables goes to any top folder holding only planning pages, not just one named `planning`. Before, plans were looked up under `planning/` only.
+- The docs say plainly that the notes folder can have any name.
+
 ## 0.2.0 (2026-11-12)
 
 - Progress bars: a plan's header shows tasks done and PRs merged as bars, `::planning` has a Progress column, and each PR page of a split plan shows the progress of its own tasks. `progressBar` is exported from `starlight-violet/kinds` for custom kinds.

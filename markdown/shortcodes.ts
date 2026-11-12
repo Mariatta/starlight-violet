@@ -36,7 +36,7 @@ function issueLinks(...issues: (string | undefined)[]): string {
 function planOrMessage(file: string | undefined, topic: string | null | undefined): Plan | string {
   const plan = planFor(file, topic);
   if (plan) return plan;
-  return topic ? `> No plan with tasks or PRs in \`planning/${topic}/\`.` : '> This page has no plan; add `topic=<folder>`.';
+  return topic ? `> No plan with tasks or PRs in a planning folder named \`${topic}\`.` : '> This page has no plan; add `topic=<folder>`.';
 }
 
 function escape(text: string): string {
@@ -107,7 +107,7 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
   planning({ status, topic, type }) {
     const rows = readKind('planning')
       .filter((p) => !status || p.data.status === status)
-      .filter((p) => !topic || p.topic === topic)
+      .filter((p) => !topic || p.topic === topic || p.folder === topic)
       .filter((p) => !type || p.data.type === type)
       .sort((a, b) => String(b.data.updated).localeCompare(String(a.data.updated)) || a.url.localeCompare(b.url))
       .map(({ url, title, topicLabel, data }) => [
@@ -122,10 +122,10 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
     return table(['Page', 'Topic', 'Type', 'Status', 'Progress', 'Last updated', 'Issues'], rows);
   },
 
-  /** One row per topic folder under planning/: its pages and their statuses. */
+  /** One row per folder of planning pages, wherever it is: its pages and their statuses. */
   topics() {
     const byTopic = new Map<string, PageInfo[]>();
-    for (const page of readKind('planning')) byTopic.set(page.topic, [...(byTopic.get(page.topic) ?? []), page]);
+    for (const page of readKind('planning')) byTopic.set(page.folder, [...(byTopic.get(page.folder) ?? []), page]);
     const rows = [...byTopic.values()].map((pages) => {
       const latest = pages.map((p) => String(p.data.updated)).sort().at(-1) ?? '';
       const issues = [...new Set(pages.flatMap((p) => issueRefs(p.data)))];

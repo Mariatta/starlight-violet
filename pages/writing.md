@@ -11,7 +11,9 @@ site's rules win.
 
 ## Pointing your agent here
 
-Add this to the project's `AGENTS.md` (or `CLAUDE.md`), with your own paths:
+Add this to the project's `AGENTS.md` (or `CLAUDE.md`), with your own paths.
+`docs/` and `docs-site/` are only examples: the notes can be in any folder,
+such as `notes/` or `handoffs/`, set by the site's `notes` option.
 
 ```markdown
 ## Writing docs
