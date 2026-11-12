@@ -6,8 +6,8 @@
  *   site serves files.
  * - `:task[3]` and `:pr[2]` link to that task or PR of the plan the page
  *   belongs to (the page itself, else the plan in its folder);
- *   `:task[3]{topic=other-folder}` reaches the plan of another folder under
- *   planning/. An unknown number fails the build, naming the page.
+ *   `:task[3]{topic=other-folder}` reaches the plan in another folder of
+ *   planning pages, by its name or its path. An unknown number fails the build, naming the page.
  * - In a plan's folder, prose such as "Task 3", "Tasks 6, 7" and "Tasks 1 to
  *   5" links each number the plan declares.
  * - With the decision kind on, "decision 0011" (also "decisions 0005, 0022

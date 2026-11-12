@@ -164,8 +164,12 @@ export interface PageInfo {
   id: string;
   url: string;
   title: string;
-  /** The page's folder under its top-level folder, such as the topic of a planning page. */
+  /** The page's folder in the notes, such as `planning/export-screen`. */
+  folder: string;
+  /** The name of the folder holding the page, such as `export-screen`; empty for a page at the top of the notes. */
   topic: string;
+  /** The page's top-level folder, as the sidebar and section pages group it; `looseFiles` for a page at the top. */
+  section: string;
   topicLabel: string;
   data: Record<string, unknown>;
 }
@@ -177,14 +181,17 @@ export function readKind(kind: string): PageInfo[] {
     const { data, body } = readPage(file);
     if (data.kind !== kind) continue;
     const rel = notesRel(file).split('/');
-    const topic = rel.length > 2 ? rel[1] : '';
+    const dirs = rel.slice(0, -1);
+    const topic = dirs.at(-1) ?? '';
     const id = idFor(file, notesDir());
     pages.push({
       file,
       id,
       url: pageUrl(id),
       title: String(data.title ?? splitTitle(body).title ?? rel.at(-1)),
+      folder: dirs.join('/'),
       topic,
+      section: dirs[0] ?? getOptions().looseFiles ?? '',
       topicLabel: topic ? words(topic) : '',
       data,
     });

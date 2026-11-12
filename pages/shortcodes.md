@@ -13,10 +13,11 @@ turned on says that nothing matches.
 
 | Shortcode | Renders |
 |---|---|
-| `::topics` | One row per folder under `planning/`: its pages with their statuses, the latest update, and the issues |
+| `::topics` | One row per folder of planning pages, wherever it is: its pages with their statuses, the latest update, and the issues |
 | `::planning` | Every planning page: topic, type, status, a plan's tasks done as a progress bar, last updated, issues; newest change first |
 | `::planning{status=draft}` | The planning pages with that status |
-| `::planning{topic=export-screen}` | The pages of one folder under `planning/` |
+| `::planning{topic=export-screen}` | The pages of one planning folder, by its name or its path, such as `work/export-screen` |
+| `::planning{in=work}`, `::topics{in=work}` | Only the planning pages in one top-level folder |
 | `::planning{type=plan}` | The pages of one type: `context`, `brainstorm`, `spec` or `plan` |
 
 Attributes combine: `::planning{topic=export-screen status=draft}`.
@@ -56,7 +57,7 @@ leaves folders out.
 | Part | Comes from |
 |---|---|
 | A card's description | The site's `sectionDescriptions` option, else the folder README's `description`, else Violet's default for `planning`, `reference`, `decisions` and `handoffs` |
-| The page a card leads to | The folder's `README.md`; else `/decisions/` for the decisions; else a page Violet makes, listing the folder's pages (for `planning`, its topics and recent changes). It heads the folder's sidebar group as "Overview" |
+| The page a card leads to | The folder's `README.md`; else `/decisions/` for the decisions; else a page Violet makes, listing the folder's pages (for a folder holding only planning pages, its topics and recent changes). It heads the folder's sidebar group as "Overview" |
 
 With Starlight's `template: splash` and `hero` front matter on the site's
 `index.md`, that is the landing page:

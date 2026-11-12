@@ -36,7 +36,8 @@ every field, with a skeleton to copy:
 ## Planning, in more detail
 
 The planning kind follows a piece of work through four types of page, kept
-in one folder per piece of work, such as `planning/export-screen/`:
+in one folder per piece of work, such as `planning/export-screen/` (the
+folder names are yours):
 
 | Type | Answers | Becomes |
 |---|---|---|

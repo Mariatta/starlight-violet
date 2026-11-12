@@ -7,7 +7,7 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Slugger from 'github-slugger';
-import { idFor, notesDir, pageUrl, readPage, splitTitle } from './notes';
+import { idFor, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
 
 export interface PlanTask {
   number: number;
@@ -227,14 +227,48 @@ export function readPlan(file: string): Plan | undefined {
 }
 
 /**
+ * The folders of planning pages that `topic` names: a folder's name, such as
+ * `export-screen`, or its path in the notes, such as `work/export-screen`.
+ * Planning pages can live in any folder; nothing assumes one called planning/.
+ */
+export function planningFolders(topic: string): string[] {
+  const folders = readKind('planning')
+    .filter((page) => page.folder === topic || page.topic === topic)
+    .map((page) => page.folder);
+  return [...new Set(folders)].sort();
+}
+
+/**
  * The plan a page refers to: the page itself when it declares tasks or PRs,
- * else the page in its folder that does. With a topic, the plan in that
- * folder under planning/.
+ * else the page in its folder that does. With a topic, the plan in the
+ * planning folder of that name; a name two folders share must be given as a
+ * path.
  */
 export function planFor(file: string | undefined, topic?: string | null): Plan | undefined {
-  if (topic) return planInFolder(join(notesDir(), 'planning', topic));
+  if (topic) {
+    const folder = planningFolder(topic, file);
+    if (folder !== undefined) return planInFolder(join(notesDir(), folder));
+    // A plan whose pages declare no kind: the folder at that path, or under planning/ as before.
+    for (const path of [topic, join('planning', topic)]) {
+      const plan = planInFolder(join(notesDir(), path));
+      if (plan) return plan;
+    }
+    return;
+  }
   if (!file || !file.startsWith(notesDir())) return;
   return readPlan(file) ?? planInFolder(dirname(file));
+}
+
+/**
+ * The one planning folder `topic` names, or undefined when none does; a name
+ * two folders share fails the build, naming the page that used it.
+ */
+export function planningFolder(topic: string, file: string | undefined): string | undefined {
+  const folders = planningFolders(topic);
+  if (folders.length > 1) {
+    throw new Error(`${file ?? 'a site page'}: topic=${topic} names more than one planning folder (${folders.join(', ')}); give its path, such as topic=${folders[0]}`);
+  }
+  return folders[0];
 }
 
 function planInFolder(folder: string): Plan | undefined {

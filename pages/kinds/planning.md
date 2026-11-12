@@ -4,7 +4,8 @@ description: The front matter every planning page carries
 ---
 
 A planning page is one context report, brainstorm, spec or plan for a piece
-of work, in its own folder under `planning/` in the notes. It declares
+of work, in its own folder in the notes, such as `planning/export-screen/`
+(the folder names are yours: `plans/`, `work/` or any other). It declares
 `kind: planning`. A site can require it of every file in those folders with
 Violet's `require` option, such as `'planning/*/*.md': 'planning'`. The
 build fails on a page whose front matter is missing a required field or has
@@ -146,7 +147,7 @@ a page's front matter override this, as in Starlight.
 | -------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `:task[3]`                       | A link "Task 3" to that heading in this folder's plan                                              |
 | `:pr[2]`                         | A link "PR 2" to that heading                                                                      |
-| `:task[3]{topic=other-folder}`   | The same, in the plan of another folder under `planning/` in the notes                                     |
+| `:task[3]{topic=other-folder}`   | The same, in the plan of another folder of planning pages, by its name or its path                                     |
 | Task 3, Tasks 6, 7, Tasks 1 to 5 | In a plan, or a page in the same folder as one, plain prose like this links each number on its own |
 
 A `:task` or `:pr` with a number the plan does not have fails the build.

@@ -14,7 +14,7 @@ import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../ki
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
-import { idFor, isSkipped, listMarkdown, notesInSiteRepo, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
+import { idFor, isSkipped, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { headings, isSplit, pageParts, readPlan, type Plan } from './plans';
 
 /** Violet's guide pages are filed under this folder. */
@@ -263,11 +263,24 @@ export function notesLoader(): Loader {
         // Every top-level folder gets a page of its own, for the landing page's
         // cards to lead to: its README when it has one, else this one, which
         // lists its pages. The decisions have theirs at /decisions/.
+        // The kinds declared in each top-level folder, read once.
+        const kindsBySection = new Map<string, unknown[]>();
+        for (const file of notesPages()) {
+          const rel = notesRel(file);
+          const section = rel.includes('/') ? rel.split('/')[0] : options.looseFiles;
+          const kind = readPage(file).data.kind;
+          if (section && kind !== undefined) kindsBySection.set(section, [...(kindsBySection.get(section) ?? []), kind]);
+        }
         for (const section of sections()) {
           const id = slugify(section);
           if (taken.has(id) || (section === 'decisions' && options.kinds.includes('decision'))) continue;
           taken.set(id, `the ${section} section page`);
-          const body = section === 'planning' ? '::topics\n\n## Recently updated\n\n::planning\n' : `::folder{name=${section}}\n`;
+          // A folder of planning pages, whatever it is called, gets its planning tables.
+          const kindsHere = new Set(kindsBySection.get(section) ?? []);
+          const planningOnly = kindsHere.size === 1 && kindsHere.has('planning');
+          const body = planningOnly
+            ? `::topics{in=${section}}\n\n## Recently updated\n\n::planning{in=${section}}\n`
+            : `::folder{name=${section}}\n`;
           const description = sectionDescription(section);
           const data = { title: words(section), ...(description && { description }), editUrl: false, sidebar: { label: 'Overview', order: 0 } };
           entries.push({

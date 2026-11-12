@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { getKind, progressBar, statusBadge, statusLabel } from '../kinds';
 import { getOptions } from '../options';
 import { idFor, issueRefs, issueUrl, notesDir, notesPages, notesRel, pageUrl, readKind, readPage, sectionDescription, sections, slugify, splitTitle, words, type PageInfo } from '../lib/notes';
-import { planFor, type Plan } from '../lib/plans';
+import { planFor, planningFolder, type Plan } from '../lib/plans';
 import { readDecisions, readHandoffs } from '../lib/records';
 
 type Attributes = Record<string, string | null | undefined>;
@@ -36,7 +36,7 @@ function issueLinks(...issues: (string | undefined)[]): string {
 function planOrMessage(file: string | undefined, topic: string | null | undefined): Plan | string {
   const plan = planFor(file, topic);
   if (plan) return plan;
-  return topic ? `> No plan with tasks or PRs in \`planning/${topic}/\`.` : '> This page has no plan; add `topic=<folder>`.';
+  return topic ? `> No plan with tasks or PRs in a planning folder named \`${topic}\`.` : '> This page has no plan; add `topic=<folder>`.';
 }
 
 function escape(text: string): string {
@@ -56,6 +56,13 @@ function taskProgress(data: Record<string, unknown>): string {
   const tasks = Array.isArray(data.tasks) ? (data.tasks as { status?: string }[]) : [];
   if (tasks.length === 0) return '';
   return progressBar(tasks.filter((task) => task.status === 'done').length, tasks.length, 'tasks done');
+}
+
+/** A planning page's topic as a table shows it: the folder's name, or its path where two folders share the name. */
+function topicLabels(pages: PageInfo[]): (page: PageInfo) => string {
+  const folders = new Map<string, Set<string>>();
+  for (const page of pages) folders.set(page.topic, (folders.get(page.topic) ?? new Set()).add(page.folder));
+  return (page) => ((folders.get(page.topic)?.size ?? 0) > 1 ? page.folder : page.topicLabel);
 }
 
 export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) => string> = {
@@ -102,17 +109,21 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
   /**
    * Every planning page, newest change first, optionally narrowed:
    * `::planning{status=draft}`, `::planning{topic=export-screen}`,
-   * `::planning{type=plan}`.
+   * `::planning{type=plan}`, `::planning{in=work}` (one top-level folder).
    */
-  planning({ status, topic, type }) {
+  planning({ status, topic, type, in: section }, file) {
+    const folder = topic ? planningFolder(topic, file) : undefined;
+    const label = topicLabels(readKind('planning'));
     const rows = readKind('planning')
       .filter((p) => !status || p.data.status === status)
-      .filter((p) => !topic || p.topic === topic)
+      .filter((p) => !topic || p.folder === folder)
+      .filter((p) => !section || p.section === section)
       .filter((p) => !type || p.data.type === type)
       .sort((a, b) => String(b.data.updated).localeCompare(String(a.data.updated)) || a.url.localeCompare(b.url))
-      .map(({ url, title, topicLabel, data }) => [
-        `[${title}](${url})`,
-        topicLabel,
+      .map((page) => [page, page.data] as const)
+      .map(([page, data]) => [
+        `[${page.title}](${page.url})`,
+        label(page),
         statusLabel(String(data.type)),
         statusBadge('planning', String(data.status)),
         taskProgress(data),
@@ -122,15 +133,21 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
     return table(['Page', 'Topic', 'Type', 'Status', 'Progress', 'Last updated', 'Issues'], rows);
   },
 
-  /** One row per topic folder under planning/: its pages and their statuses. */
-  topics() {
+  /**
+   * One row per folder of planning pages, wherever it is: its pages and their
+   * statuses. `::topics{in=work}` lists one top-level folder's.
+   */
+  topics({ in: section }) {
     const byTopic = new Map<string, PageInfo[]>();
-    for (const page of readKind('planning')) byTopic.set(page.topic, [...(byTopic.get(page.topic) ?? []), page]);
+    for (const page of readKind('planning').filter((p) => !section || p.section === section)) {
+      byTopic.set(page.folder, [...(byTopic.get(page.folder) ?? []), page]);
+    }
+    const label = topicLabels([...byTopic.values()].flat());
     const rows = [...byTopic.values()].map((pages) => {
       const latest = pages.map((p) => String(p.data.updated)).sort().at(-1) ?? '';
       const issues = [...new Set(pages.flatMap((p) => issueRefs(p.data)))];
       return [
-        pages[0].topicLabel,
+        label(pages[0]),
         pages
           .map((p) => `[${statusLabel(String(p.data.type))}](${p.url}) ${statusBadge('planning', String(p.data.status))}`)
           .join('<br>'),

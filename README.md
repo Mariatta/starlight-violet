@@ -94,7 +94,7 @@ It needs Astro 7 with its default Sätteri Markdown processor and Starlight
 
 | Option | Default | Meaning |
 |---|---|---|
-| `notes` | required | The notes folder, relative to the site's root |
+| `notes` | required | The notes folder, relative to the site's root, under any name: `../docs`, `../notes`, `../handoffs` |
 | `kinds` | `[]` | Built-in kinds this site uses: `planning`, `reference`, `decision`, `handoff` |
 | `customKinds` | `{}` | Kinds the site defines itself, by name; see the Extending page |
 | `require` | `{}` | Globs (relative to the notes) mapped to the kind their files must declare. `*` stays in one folder, `**` crosses folders, `?` is one character |
