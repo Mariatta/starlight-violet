@@ -58,6 +58,13 @@ function taskProgress(data: Record<string, unknown>): string {
   return progressBar(tasks.filter((task) => task.status === 'done').length, tasks.length, 'tasks done');
 }
 
+/** A planning page's topic as a table shows it: the folder's name, or its path where two folders share the name. */
+function topicLabels(pages: PageInfo[]): (page: PageInfo) => string {
+  const folders = new Map<string, Set<string>>();
+  for (const page of pages) folders.set(page.topic, (folders.get(page.topic) ?? new Set()).add(page.folder));
+  return (page) => ((folders.get(page.topic)?.size ?? 0) > 1 ? page.folder : page.topicLabel);
+}
+
 export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) => string> = {
   /**
    * The landing page's cards: one per top-level folder of the notes, in
@@ -106,15 +113,17 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
    */
   planning({ status, topic, type, in: section }, file) {
     const folder = topic ? planningFolder(topic, file) : undefined;
+    const label = topicLabels(readKind('planning'));
     const rows = readKind('planning')
       .filter((p) => !status || p.data.status === status)
       .filter((p) => !topic || p.folder === folder)
       .filter((p) => !section || p.section === section)
       .filter((p) => !type || p.data.type === type)
       .sort((a, b) => String(b.data.updated).localeCompare(String(a.data.updated)) || a.url.localeCompare(b.url))
-      .map(({ url, title, topicLabel, data }) => [
-        `[${title}](${url})`,
-        topicLabel,
+      .map((page) => [page, page.data] as const)
+      .map(([page, data]) => [
+        `[${page.title}](${page.url})`,
+        label(page),
         statusLabel(String(data.type)),
         statusBadge('planning', String(data.status)),
         taskProgress(data),
@@ -133,14 +142,12 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
     for (const page of readKind('planning').filter((p) => !section || p.section === section)) {
       byTopic.set(page.folder, [...(byTopic.get(page.folder) ?? []), page]);
     }
-    // Folders that share a name are told apart by their path.
-    const names = [...byTopic.values()].map((pages) => pages[0].topic);
-    const shared = new Set(names.filter((name, i) => names.indexOf(name) !== i));
+    const label = topicLabels([...byTopic.values()].flat());
     const rows = [...byTopic.values()].map((pages) => {
       const latest = pages.map((p) => String(p.data.updated)).sort().at(-1) ?? '';
       const issues = [...new Set(pages.flatMap((p) => issueRefs(p.data)))];
       return [
-        shared.has(pages[0].topic) ? pages[0].folder : pages[0].topicLabel,
+        label(pages[0]),
         pages
           .map((p) => `[${statusLabel(String(p.data.type))}](${p.url}) ${statusBadge('planning', String(p.data.status))}`)
           .join('<br>'),
