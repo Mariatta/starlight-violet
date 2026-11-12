@@ -12,19 +12,31 @@ interface Sponsor {
   logo?: string;
 }
 
+interface Props {
+  /**
+   * 'sidebar' under the table of contents, which Starlight shows on wide
+   * screens; 'footer' at the foot of the page, shown where that sidebar is
+   * not: narrow screens, and pages without a table of contents.
+   */
+  placement?: 'sidebar' | 'footer';
+  /** For 'footer': show at every width, on a page with no table of contents. */
+  always?: boolean;
+}
+
+const { placement = 'sidebar', always = false } = Astro.props;
 const SPONSORS: Sponsor[] = [];
 const SPONSOR_URL = 'https://github.com/sponsors/Mariatta';
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 
-<aside class="violet-sponsors" aria-labelledby="violet-sponsors-title">
-  <h2 id="violet-sponsors-title">Sponsors</h2>
+<aside class:list={["violet-sponsors", placement, { always }]} aria-labelledby={`violet-sponsors-${placement}`}>
+  <h2 id={`violet-sponsors-${placement}`}>Sponsors</h2>
   {
     SPONSORS.length > 0 && (
       <ul>
         {SPONSORS.map((sponsor) => (
           <li>
-            <a href={sponsor.url} rel="sponsored noopener">
+            <a href={sponsor.url} rel="sponsored">
               {sponsor.logo ? <img src={`${base}${sponsor.logo}`} alt={sponsor.name} /> : sponsor.name}
             </a>
           </li>
@@ -44,6 +56,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     padding-top: 1rem;
     border-top: 1px solid var(--sl-color-hairline);
     font-size: var(--sl-text-xs);
+  }
+  /* Starlight shows the table of contents sidebar from 72rem. */
+  .footer {
+    font-size: var(--sl-text-sm);
+  }
+  @media (min-width: 72rem) {
+    .footer:not(.always) {
+      display: none;
+    }
   }
   h2 {
     font-size: var(--sl-text-h5);

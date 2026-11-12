@@ -17,8 +17,12 @@ export default defineConfig({
       favicon: '/favicon.svg',
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/mariatta/starlight-violet' }],
       customCss: ['./src/styles/violet.css'],
-      // Sponsors under the table of contents: this site's own override, not Violet's.
-      components: { TableOfContents: './src/components/TableOfContents.astro' },
+      // Sponsors under the table of contents, and in the footer where that is not on
+      // screen: this site's own overrides, not Violet's.
+      components: {
+        TableOfContents: './src/components/TableOfContents.astro',
+        Footer: './src/components/Footer.astro',
+      },
       sidebar: [
         {
           label: 'Start here',
