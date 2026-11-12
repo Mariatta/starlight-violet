@@ -1,0 +1,79 @@
+---
+/**
+ * Violet's sponsors, under the table of contents on every docs page. This is
+ * the docs site's own component, not part of the plugin: sites using Violet
+ * get nothing from it. Add a sponsor to SPONSORS with its name, link and,
+ * optionally, a logo in public/sponsors/.
+ */
+interface Sponsor {
+  name: string;
+  url: string;
+  /** A path under public/, such as '/sponsors/acme.svg'. */
+  logo?: string;
+}
+
+const SPONSORS: Sponsor[] = [];
+const SPONSOR_URL = 'https://github.com/sponsors/Mariatta';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<aside class="violet-sponsors" aria-labelledby="violet-sponsors-title">
+  <h2 id="violet-sponsors-title">Sponsors</h2>
+  {
+    SPONSORS.length > 0 && (
+      <ul>
+        {SPONSORS.map((sponsor) => (
+          <li>
+            <a href={sponsor.url} rel="sponsored noopener">
+              {sponsor.logo ? <img src={`${base}${sponsor.logo}`} alt={sponsor.name} /> : sponsor.name}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  <p>
+    Violet is free and open source. If it helps your team, you can{' '}
+    <a href={SPONSOR_URL}>sponsor its development on GitHub</a>.
+  </p>
+</aside>
+
+<style>
+  .violet-sponsors {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--sl-color-hairline);
+    font-size: var(--sl-text-xs);
+  }
+  h2 {
+    font-size: var(--sl-text-h5);
+    color: var(--sl-color-white);
+    margin: 0 0 0.5rem;
+  }
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  img {
+    max-height: 2rem;
+    max-width: 100%;
+    filter: grayscale(1);
+    transition: filter 0.15s;
+  }
+  a:hover img {
+    filter: none;
+  }
+  p {
+    color: var(--sl-color-gray-3);
+    margin: 0;
+  }
+  p a {
+    display: inline;
+    padding: 0;
+    color: var(--sl-color-text-accent);
+  }
+</style>

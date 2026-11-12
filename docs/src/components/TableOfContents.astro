@@ -1,0 +1,11 @@
+---
+/**
+ * Starlight's table of contents, then Violet's sponsors under it. An
+ * override for this docs site only; it is not part of the plugin.
+ */
+import Default from '@astrojs/starlight/components/TableOfContents.astro';
+import Sponsors from './Sponsors.astro';
+---
+
+<Default {...Astro.props}><slot /></Default>
+<Sponsors />
