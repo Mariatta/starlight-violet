@@ -1,0 +1,14 @@
+---
+/**
+ * Starlight's page footer, then Violet's sponsors where the table of
+ * contents sidebar, which also shows them, is not on screen. An override for
+ * this docs site only; it is not part of the plugin.
+ */
+import Default from '@astrojs/starlight/components/Footer.astro';
+import Sponsors from './Sponsors.astro';
+
+const hasToc = Boolean(Astro.locals.starlightRoute.toc);
+---
+
+<Default {...Astro.props}><slot /></Default>
+<Sponsors placement="footer" always={!hasToc} />

@@ -17,6 +17,12 @@ export default defineConfig({
       favicon: '/favicon.svg',
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/mariatta/starlight-violet' }],
       customCss: ['./src/styles/violet.css'],
+      // Sponsors under the table of contents, and in the footer where that is not on
+      // screen: this site's own overrides, not Violet's.
+      components: {
+        TableOfContents: './src/components/TableOfContents.astro',
+        Footer: './src/components/Footer.astro',
+      },
       sidebar: [
         {
           label: 'Start here',
@@ -39,7 +45,13 @@ export default defineConfig({
           collapsed: true,
           items: [
             { slug: 'examples' },
-            { label: 'Planning', items: [{ autogenerate: { directory: 'planning' } }] },
+            {
+              label: 'Planning',
+              items: [
+                { slug: 'planning', label: 'Overview' },
+                { label: 'Export screen', items: [{ autogenerate: { directory: 'planning/export-screen' } }] },
+              ],
+            },
             { label: 'Reference', items: [{ autogenerate: { directory: 'reference' } }] },
             { label: 'Decisions', items: [{ label: 'All decisions', link: '/decisions/' }, { autogenerate: { directory: 'decisions' } }] },
             { label: 'Handoffs', items: [{ autogenerate: { directory: 'handoffs' } }] },

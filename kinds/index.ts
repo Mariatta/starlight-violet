@@ -83,6 +83,20 @@ export function statusBadge(kind: string, status: string): string {
   return `<span class="note-badge note-badge-${statusVariant(kind, status)}">${statusLabel(status)}</span>`;
 }
 
+/**
+ * A progress bar with its count, as HTML: `6 of 14 tasks done`. The count
+ * is visible text, which screen readers read; the bar is hidden from them so
+ * the count is not announced twice. `total` must be above 0.
+ */
+export function progressBar(done: number, total: number, what: string): string {
+  const text = escapeHtml(`${done} of ${total} ${what}`);
+  return `<span class="note-progress"><progress value="${done}" max="${total}" aria-hidden="true"></progress><span>${text}</span></span>`;
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 /** The sections a body is missing or has out of order, as a message, or undefined when it conforms. */
 export function sectionProblem(kind: Kind, found: string[]): string | undefined {
   if (!kind.sections) return;

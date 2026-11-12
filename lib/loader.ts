@@ -10,7 +10,7 @@ import type { Loader } from 'astro/loaders';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ZodError } from 'astro/zod';
-import { getKind, isKind, sectionProblem, statusBadge } from '../kinds';
+import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../kinds';
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
@@ -47,6 +47,7 @@ function prHeader(plan: Plan | undefined, number: number, planTitle: string): st
     pr.branch && ['Branch', `<code>${escape(pr.branch)}</code>`],
     pr.ships && ['Ships', escape(pr.ships)],
     tasks.length > 0 && ['Tasks', tasks.map((task) => `<a href="${task.url}">Task ${task.number}</a>`).join(', ')],
+    tasks.length > 0 && ['Progress', progressBar(tasks.filter((task) => task.status === 'done').length, tasks.length, 'tasks done')],
     ['Plan', `<a href="${plan.url}">${escape(planTitle)}</a>`],
   ].filter(Boolean) as string[][];
   return `<table class="kind-meta"><tbody>${rows.map(([th, td]) => `<tr><th>${th}</th><td>${td}</td></tr>`).join('')}</tbody></table>\n\n`;
