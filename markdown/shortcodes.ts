@@ -6,7 +6,7 @@
  */
 import type { MdastPluginEntry } from 'satteri';
 import { fileURLToPath } from 'node:url';
-import { getKind, statusBadge, statusLabel } from '../kinds';
+import { getKind, progressBar, statusBadge, statusLabel } from '../kinds';
 import { getOptions } from '../options';
 import { idFor, issueRefs, issueUrl, notesDir, notesPages, notesRel, pageUrl, readKind, readPage, sectionDescription, sections, slugify, splitTitle, words, type PageInfo } from '../lib/notes';
 import { planFor, type Plan } from '../lib/plans';
@@ -49,6 +49,13 @@ function pageDate(data: Record<string, unknown>): string | undefined {
   const value = data[field] ?? data.updated;
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return typeof value === 'string' ? value : undefined;
+}
+
+/** A plan's tasks done, as a progress bar; empty for a page without tasks. */
+function taskProgress(data: Record<string, unknown>): string {
+  const tasks = Array.isArray(data.tasks) ? (data.tasks as { status?: string }[]) : [];
+  if (tasks.length === 0) return '';
+  return progressBar(tasks.filter((task) => task.status === 'done').length, tasks.length, 'tasks done');
 }
 
 export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) => string> = {
@@ -108,10 +115,11 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
         topicLabel,
         statusLabel(String(data.type)),
         statusBadge('planning', String(data.status)),
+        taskProgress(data),
         String(data.updated),
         issueLinks(...issueRefs(data)),
       ]);
-    return table(['Page', 'Topic', 'Type', 'Status', 'Last updated', 'Issues'], rows);
+    return table(['Page', 'Topic', 'Type', 'Status', 'Progress', 'Last updated', 'Issues'], rows);
   },
 
   /** One row per topic folder under planning/: its pages and their statuses. */

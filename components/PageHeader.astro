@@ -4,7 +4,7 @@
  * stack and note in a table, then Issues and Related as sections of their own.
  */
 import { Badge } from '@astrojs/starlight/components';
-import { statusLabel, statusVariant } from '../kinds';
+import { progressBar, statusLabel, statusVariant } from '../kinds';
 import { issueUrl } from '../lib/notes';
 import { headingWithLink } from '../lib/headings';
 
@@ -44,9 +44,9 @@ function repoOf(ref: string): string {
       {tasks.length > 0 && (
         <tr>
           <th>Progress</th>
-          <td>
-            {done} of {tasks.length} tasks done
-            {prs.length > 0 && <span>, {prsDone} of {prs.length} PRs merged</span>}
+          <td class="note-progress-cell">
+            <Fragment set:html={progressBar(done, tasks.length, 'tasks done')} />
+            {prs.length > 0 && <Fragment set:html={progressBar(prsDone, prs.length, 'PRs merged')} />}
           </td>
         </tr>
       )}

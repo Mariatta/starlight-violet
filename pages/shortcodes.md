@@ -14,7 +14,7 @@ turned on says that nothing matches.
 | Shortcode | Renders |
 |---|---|
 | `::topics` | One row per folder under `planning/`: its pages with their statuses, the latest update, and the issues |
-| `::planning` | Every planning page: topic, type, status, last updated, issues; newest change first |
+| `::planning` | Every planning page: topic, type, status, a plan's tasks done as a progress bar, last updated, issues; newest change first |
 | `::planning{status=draft}` | The planning pages with that status |
 | `::planning{topic=export-screen}` | The pages of one folder under `planning/` |
 | `::planning{type=plan}` | The pages of one type: `context`, `brainstorm`, `spec` or `plan` |

@@ -79,7 +79,10 @@ missing from `tasks`, or a PR listing a task that is not in `tasks`.
 | `prs[].status`              | no       | As for tasks                                                      |
 | `prs[].issue`, `prs[].pull` | no       | Its issue and its pull request, such as `#540`                    |
 
-The page header counts tasks done and PRs merged.
+The page header shows progress bars for tasks done and PRs merged (a PR
+counts as merged when its `status` is `done`), and `::planning` shows a
+plan's tasks done in its Progress column. On a split plan, each PR's page
+shows the progress of its own tasks.
 
 ```yaml
 tasks:

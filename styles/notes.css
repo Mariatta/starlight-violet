@@ -165,3 +165,46 @@ table.kind-list td {
   font-size: var(--sl-text-sm);
   line-height: 1.5;
 }
+
+/* Progress bars: tasks done and PRs merged, in the header and the tables. */
+.note-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  white-space: nowrap;
+}
+.note-progress-cell .note-progress {
+  display: flex;
+}
+.note-progress-cell .note-progress + .note-progress {
+  margin-top: 0.35rem;
+}
+.note-progress progress {
+  appearance: none;
+  width: 8rem;
+  height: 0.55rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--sl-color-gray-5);
+  overflow: hidden;
+}
+.note-progress progress::-webkit-progress-bar {
+  background: var(--sl-color-gray-5);
+  border-radius: 999px;
+}
+.note-progress progress::-webkit-progress-value {
+  background: var(--sl-color-text-accent);
+  border-radius: 999px;
+}
+.note-progress progress::-moz-progress-bar {
+  background: var(--sl-color-text-accent);
+  border-radius: 999px;
+}
+.kind-list .note-progress progress,
+table:not(.kind-meta) .note-progress progress {
+  width: 4.5rem;
+}
+.note-progress span {
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-2);
+}

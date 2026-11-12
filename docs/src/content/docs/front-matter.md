@@ -54,9 +54,9 @@ prs:
 ---
 ```
 
-The header then shows the status badge, the dates, "1 of 2 tasks done, 0 of
-1 PRs merged", the stack as a list and the note, with Issues and Related as
-tables of their own. See it on the
+The header then shows the status badge, the dates, progress bars for
+"1 of 2 tasks done" and "0 of 1 PRs merged", the stack as a list and the
+note, with Issues and Related as tables of their own. See it on the
 [example plan](../planning/export-screen/plan/).
 
 ## Checked at build time
