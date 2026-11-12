@@ -39,7 +39,13 @@ export default defineConfig({
           collapsed: true,
           items: [
             { slug: 'examples' },
-            { label: 'Planning', items: [{ autogenerate: { directory: 'planning' } }] },
+            {
+              label: 'Planning',
+              items: [
+                { slug: 'planning', label: 'Overview' },
+                { label: 'Export screen', items: [{ autogenerate: { directory: 'planning/export-screen' } }] },
+              ],
+            },
             { label: 'Reference', items: [{ autogenerate: { directory: 'reference' } }] },
             { label: 'Decisions', items: [{ label: 'All decisions', link: '/decisions/' }, { autogenerate: { directory: 'decisions' } }] },
             { label: 'Handoffs', items: [{ autogenerate: { directory: 'handoffs' } }] },
