@@ -68,8 +68,18 @@ export interface VioletOptions {
   owner?: string;
   /** A one-line description per top-level folder, for its card on the landing page (`::sections`) and its section page. */
   sectionDescriptions?: Record<string, string>;
-  /** Where `#12` and `other-repo#34` in front matter point. */
-  github?: { org: string; repo: string };
+  /**
+   * The repository on GitHub: where `#12` and `other-repo#34` in front matter
+   * point, and where `sourceLink` goes. `branch` is the branch source links
+   * name; default `main`.
+   */
+  github?: { org: string; repo: string; branch?: string };
+  /**
+   * A link at the foot of each page to its Markdown file on GitHub, through
+   * Starlight's edit link: `'view'` opens the file ("View source"), `'edit'`
+   * opens GitHub's editor ("Edit page"). Needs `github`. Default: no link.
+   */
+  sourceLink?: 'view' | 'edit' | false;
   /**
    * Serve the notes' non-Markdown files (images, mockups) under this path, such as `/notes/`; `false` serves none.
    * `types` adds file extensions to the served ones, by their content type, such as `{ yaml: 'text/plain' }`.
@@ -102,7 +112,8 @@ export interface ResolvedOptions {
   shortLabels: string[];
   acronyms: string[];
   sidebar: 'folders' | false;
-  github?: { org: string; repo: string };
+  github?: { org: string; repo: string; branch: string };
+  sourceLink: 'view' | 'edit' | false;
   owner?: string;
   sectionDescriptions: Record<string, string>;
   files: { prefix: string; private: string[]; types: Record<string, string> } | false;

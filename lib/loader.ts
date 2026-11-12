@@ -14,7 +14,7 @@ import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../ki
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
-import { idFor, isSkipped, listMarkdown, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, splitTitle, words } from './notes';
+import { idFor, isSkipped, listMarkdown, notesInSiteRepo, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { headings, isSplit, pageParts, readPlan, type Plan } from './plans';
 
 /** Violet's guide pages are filed under this folder. */
@@ -102,6 +102,9 @@ export function notesLoader(): Loader {
     load: async ({ store, parseData, generateDigest, renderMarkdown, logger, watcher, config }) => {
       const options = getOptions();
       const root = fileURLToPath(config.root);
+      if (options.sourceLink && !notesInSiteRepo()) {
+        logger.warn('The notes are not in the same git checkout as the site, so their pages get no source link; sourceLink covers the site\'s own pages only.');
+      }
       const sources: Source[] = [
         { dir: options.notesDir, role: 'notes' },
         { dir: options.guideDir, role: 'guide' },
@@ -138,6 +141,10 @@ export function notesLoader(): Loader {
             // `badge.prompt.md` is labelled by `badge`.
             const stem = rel.split('/').at(-1)!.replace(/\.md$/, '').split('.')[0];
             const data: Record<string, unknown> = { ...page.data, title: page.data.title ?? title ?? words(stem), source: shown };
+            // The page's link to its Markdown file on GitHub. Violet's own guide
+            // pages come from the package, not the repo, so they get none.
+            const source = role === 'guide' ? undefined : sourceUrl(file);
+            if (page.data.editUrl === undefined && (role === 'guide' || source)) data.editUrl = source ?? false;
             if (role === 'notes' && options.shortLabels.some((prefix) => rel.startsWith(prefix)) && !/README\.md$/i.test(rel)) {
               data.sidebar = { label: words(stem) };
             }
@@ -216,6 +223,8 @@ export function notesLoader(): Loader {
               const partData = {
                 title: part.title,
                 source: shown,
+                // A part's source is the page it was split from.
+                ...(data.editUrl !== undefined && { editUrl: data.editUrl }),
                 ...(order !== undefined && { sidebar: { order: order + index } }),
               };
               placed.push({ index: entries.length, id: part.id, title: part.title!, folder, order: (order ?? 0) + index, partOf: id, own: { prev: false, next: false } });
@@ -239,7 +248,7 @@ export function notesLoader(): Loader {
             throw new Error(`${taken.get(id)} takes the address /${id}/, which the generated ${page.rel} needs; rename one of them`);
           }
           taken.set(id, `generated ${page.rel}`);
-          const data = { title: page.title, source: `generated from ${page.rel.replace(/\.md$/, '')}`, ...(page.sidebar && { sidebar: page.sidebar }) };
+          const data = { title: page.title, source: `generated from ${page.rel.replace(/\.md$/, '')}`, editUrl: false, ...(page.sidebar && { sidebar: page.sidebar }) };
           entries.push({
             id,
             data: await parseData({ id, data, filePath: relative(root, file) }),
@@ -258,7 +267,7 @@ export function notesLoader(): Loader {
           taken.set(id, `the ${section} section page`);
           const body = section === 'planning' ? '::topics\n\n## Recently updated\n\n::planning\n' : `::folder{name=${section}}\n`;
           const description = sectionDescription(section);
-          const data = { title: words(section), ...(description && { description }), sidebar: { label: 'Overview', order: 0 } };
+          const data = { title: words(section), ...(description && { description }), editUrl: false, sidebar: { label: 'Overview', order: 0 } };
           entries.push({
             id,
             data: await parseData({ id, data, filePath: `src/content/docs/${section}/index.md` }),

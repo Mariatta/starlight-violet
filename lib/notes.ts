@@ -4,7 +4,7 @@
  * Everything here runs at build time on the Node side.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { getOptions } from '../options';
 
@@ -250,4 +250,49 @@ export function sidebarItems(section: string): SidebarItem[] {
     ...folders.sort().map((folder) => ({ label: words(folder), items: [{ autogenerate: { directory: `${section}/${folder}` } }] })),
     ...ids.filter((id) => !id.slice(prefix.length).includes('/')).map((slug) => ({ slug })),
   ];
+}
+
+/** The root of the git checkout holding `dir`, or undefined outside one. A worktree's `.git` is a file. */
+function gitRoot(dir: string): string | undefined {
+  let current = dir;
+  while (true) {
+    if (existsSync(join(current, '.git'))) return current;
+    const parent = dirname(current);
+    if (parent === current) return;
+    current = parent;
+  }
+}
+
+const roots = new Map<string, string | undefined>();
+
+function rootOf(dir: string): string | undefined {
+  if (!roots.has(dir)) roots.set(dir, gitRoot(dir));
+  return roots.get(dir);
+}
+
+/** The git checkout holding the site, which the `github` option names. */
+function siteRoot(): string | undefined {
+  return rootOf(getOptions().siteDocsDir);
+}
+
+/** Whether source links can reach the notes: they are in the site's own git checkout. */
+export function notesInSiteRepo(): boolean {
+  const root = rootOf(notesDir());
+  return root !== undefined && root === siteRoot();
+}
+
+/**
+ * The address of a file on GitHub, for a page's source link: the file view or
+ * the editor, as the `sourceLink` option says. Undefined when source links are
+ * off or the file is not in a git checkout.
+ */
+export function sourceUrl(file: string): string | undefined {
+  const { sourceLink, github } = getOptions();
+  if (!sourceLink || !github) return;
+  const root = rootOf(dirname(file));
+  // `github` names the site's repository; a file in another checkout (notes
+  // kept in a sibling repo or a submodule) is not in it, so no link.
+  if (!root || root !== siteRoot()) return;
+  const path = relative(root, file).split(sep).map(encodeURIComponent).join('/');
+  return `https://github.com/${github.org}/${github.repo}/${sourceLink === 'edit' ? 'edit' : 'blob'}/${github.branch.split('/').map(encodeURIComponent).join('/')}/${path}`;
 }

@@ -69,6 +69,7 @@ export default defineConfig({
           shortLabels: ['decisions/'],
           sidebar: false,
           github: { org: 'mariatta', repo: 'starlight-violet' },
+          sourceLink: 'edit',
           owner: 'The owner',
           files: { prefix: '/files/' },
           sectionDescriptions: {
