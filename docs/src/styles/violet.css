@@ -1,0 +1,16 @@
+/*
+ * Violet's own colours: a violet accent on Starlight's neutral grays. Dark
+ * mode is Starlight's default; light mode overrides it. Accent pairs meet
+ * WCAG AA as text on their backgrounds.
+ */
+:root {
+  --sl-color-accent-low: #2b1659;
+  --sl-color-accent: #8b5cf6;
+  --sl-color-accent-high: #ddd6fe;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #ede9fe;
+  --sl-color-accent: #6d28d9;
+  --sl-color-accent-high: #3b0f86;
+}

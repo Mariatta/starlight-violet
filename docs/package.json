@@ -1,0 +1,20 @@
+{
+  "name": "starlight-violet-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --port 8009",
+    "build": "astro build",
+    "check": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@astrojs/markdown-satteri": "^0.4.6",
+    "@astrojs/starlight": "^0.42.7",
+    "astro": "^7.4.1",
+    "starlight-violet": "file:..",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "name": "starlight-violet",
+  "version": "0.1.0",
+  "description": "Violet: a Starlight plugin for architecture notes, plans and decisions that live beside the code, read in place and checked against their front matter.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "adr",
+    "architecture-decision-records",
+    "astro",
+    "astro-integration",
+    "documentation",
+    "notes",
+    "planning",
+    "starlight",
+    "starlight-plugin",
+    "withastro"
+  ],
+  "exports": {
+    ".": "./index.ts",
+    "./content": "./content.ts",
+    "./kinds": "./kinds/api.ts",
+    "./middleware": "./middleware.ts",
+    "./lib/notes": "./lib/notes.ts",
+    "./lib/plans": "./lib/plans.ts",
+    "./components/*": "./components/*",
+    "./routes/*": "./routes/*",
+    "./styles/*": "./styles/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "CHANGELOG.md",
+    "index.ts",
+    "content.ts",
+    "schema.ts",
+    "options.ts",
+    "middleware.ts",
+    "virtual.d.ts",
+    "lib",
+    "kinds",
+    "markdown",
+    "components",
+    "routes",
+    "styles",
+    "pages",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "@astrojs/markdown-satteri": "^0.4.6",
+    "@astrojs/starlight": "^0.42.0",
+    "astro": "^7.0.0",
+    "satteri": "^0.11.6"
+  },
+  "dependencies": {
+    "github-slugger": "^2.0.0",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/mdast": "^4.0.4"
+  },
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "homepage": "https://mariatta.github.io/starlight-violet/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mariatta/starlight-violet.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mariatta/starlight-violet/issues"
+  }
+}

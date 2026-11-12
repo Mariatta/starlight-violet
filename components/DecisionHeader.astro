@@ -1,0 +1,59 @@
+---
+/** The structured part of a decision: status, dates, the owner's words, what it supersedes or amends, history. */
+import type { CollectionEntry } from 'astro:content';
+import { Badge } from '@astrojs/starlight/components';
+import { DECISION_VARIANT } from '../kinds/decision';
+import { statusLabel } from '../kinds';
+import { readDecisions } from '../lib/records';
+
+interface Props {
+  data: Extract<CollectionEntry<'docs'>['data'], { kind: 'decision' }>;
+}
+const { data } = Astro.props;
+const urls = new Map(readDecisions().map((d) => [d.number, d.url]));
+const references = [
+  ['Supersedes', data.supersedes],
+  ['Superseded by', data.superseded_by],
+  ['Amends', data.amends],
+  ['Amended by', data.amended_by],
+].filter(([, refs]) => (refs as unknown[]).length > 0) as [string, typeof data.supersedes][];
+---
+
+<div class="kind-header">
+  <table class="kind-meta">
+    <tbody>
+      <tr><th>Status</th><td><Badge text={statusLabel(data.status)} variant={DECISION_VARIANT[data.status]} /></td></tr>
+      <tr><th>Date</th><td>{data.date}</td></tr>
+      {data.proposed && <tr><th>Proposed</th><td>{data.proposed}</td></tr>}
+      {data.ask && <tr><th>Ask</th><td set:html={data.ask} /></tr>}
+      {data.confirmed && <tr><th>Confirmed</th><td set:html={data.confirmed} /></tr>}
+      {data.reason && <tr><th>Reason</th><td set:html={data.reason} /></tr>}
+      {data.note && <tr><th>Note</th><td set:html={data.note} /></tr>}
+      {references.map(([label, refs]) => (
+        <tr>
+          <th>{label}</th>
+          <td>
+            <ul class="references">
+              {refs.map((ref) => (
+                <li>
+                  {urls.has(ref.decision) ? <a href={urls.get(ref.decision)}>decision {ref.decision}</a> : <span>decision {ref.decision}</span>}
+                  {ref.what && <span>: <span set:html={ref.what} /></span>}
+                </li>
+              ))}
+            </ul>
+          </td>
+        </tr>
+      ))}
+      {data.history.length > 0 && (
+        <tr>
+          <th>History</th>
+          <td>
+            <ul class="history">
+              {data.history.map((item) => <li><time>{item.date}</time> <span set:html={item.note} /></li>)}
+            </ul>
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>

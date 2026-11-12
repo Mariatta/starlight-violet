@@ -1,0 +1,26 @@
+---
+/**
+ * Starlight's content panel, with a kind's structured header in front of the
+ * body. The loader has already checked the page against its kind. A site's
+ * own kind uses the header it names (the `header` of its custom kind), else
+ * Violet's header for status, dates, issues and related pages.
+ */
+import Default from '@astrojs/starlight/components/MarkdownContent.astro';
+import customHeaders from 'virtual:starlight-violet/kind-headers';
+import DecisionHeader from './DecisionHeader.astro';
+import HandoffHeader from './HandoffHeader.astro';
+import PageHeader from './PageHeader.astro';
+
+const { entry } = Astro.locals.starlightRoute;
+const data = entry.data as any;
+const Custom = data.kind ? (customHeaders as Record<string, any>)[data.kind] : undefined;
+const builtIn = ['planning', 'reference', 'handoff', 'decision'];
+---
+
+<Default {...Astro.props}>
+  {(data.kind === 'planning' || data.kind === 'reference') && <PageHeader data={data} />}
+  {data.kind === 'handoff' && <HandoffHeader data={data} />}
+  {data.kind === 'decision' && <DecisionHeader data={data} />}
+  {data.kind && !builtIn.includes(data.kind) && (Custom ? <Custom data={data} /> : <PageHeader data={data} />)}
+  <slot />
+</Default>

@@ -1,0 +1,103 @@
+---
+/**
+ * The structured part of a page of a kind: status, type, dates, progress, tech
+ * stack and note in a table, then Issues and Related as sections of their own.
+ */
+import { Badge } from '@astrojs/starlight/components';
+import { statusLabel, statusVariant } from '../kinds';
+import { issueUrl } from '../lib/notes';
+import { headingWithLink } from '../lib/headings';
+
+interface Props {
+  data: any;
+}
+const { data } = Astro.props;
+const tasks = (data.tasks ?? []) as { status: string }[];
+const prs = (data.prs ?? []) as { status: string }[];
+const stack = (data.stack ?? []) as string[];
+const issues = (data.issues ?? []) as { ref: string; title?: string; note?: string }[];
+const related = (data.related ?? []) as { html: string; link: string; note?: string }[];
+const done = tasks.filter((task) => task.status === 'done').length;
+const prsDone = prs.filter((pr) => pr.status === 'done').length;
+const issueNotes = issues.some((issue) => issue.note);
+const issueTitles = issues.some((issue) => issue.title);
+const relatedNotes = related.some((item) => item.note);
+
+/** Where a related link points: this site, another repo, or elsewhere. */
+function where(link: string): string {
+  const repo = /^https:\/\/github\.com\/[^/]+\/([^/]+)\//.exec(link);
+  if (repo) return `${repo[1]} repo`;
+  return /^[a-z]+:/i.test(link) ? 'External' : 'This site';
+}
+function repoOf(ref: string): string {
+  return ref.startsWith('#') ? 'This repo' : ref.split('#')[0];
+}
+---
+
+<div class="kind-header">
+  <table class="kind-meta">
+    <tbody>
+      {data.status && <tr><th>Status</th><td><Badge text={statusLabel(data.status)} variant={statusVariant(data.kind, data.status)} /></td></tr>}
+      {data.type && <tr><th>Type</th><td>{statusLabel(data.type)}</td></tr>}
+      {data.updated && <tr><th>Last updated</th><td><time datetime={data.updated}>{data.updated}</time></td></tr>}
+      {data.created && <tr><th>Created</th><td><time datetime={data.created}>{data.created}</time></td></tr>}
+      {tasks.length > 0 && (
+        <tr>
+          <th>Progress</th>
+          <td>
+            {done} of {tasks.length} tasks done
+            {prs.length > 0 && <span>, {prsDone} of {prs.length} PRs merged</span>}
+          </td>
+        </tr>
+      )}
+      {stack.length > 0 && (
+        <tr>
+          <th>Tech stack</th>
+          <td><ul>{stack.map((item) => <li set:html={item} />)}</ul></td>
+        </tr>
+      )}
+      {data.note && <tr><th>Note</th><td set:html={data.note} /></tr>}
+    </tbody>
+  </table>
+
+  {issues.length > 0 && (
+    <Fragment>
+      <Fragment set:html={headingWithLink(2, 'issues', 'Issues')} />
+      <table class="kind-list">
+        <thead>
+          <tr><th>Issue</th>{issueTitles && <th>Title</th>}<th>Repo</th>{issueNotes && <th>Note</th>}</tr>
+        </thead>
+        <tbody>
+          {issues.map((issue) => (
+            <tr>
+              <td><a href={issueUrl(issue.ref)}>{issue.ref}</a></td>
+              {issueTitles && <td>{issue.title}</td>}
+              <td>{repoOf(issue.ref)}</td>
+              {issueNotes && <td set:html={issue.note ?? ''} />}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Fragment>
+  )}
+
+  {related.length > 0 && (
+    <Fragment>
+      <Fragment set:html={headingWithLink(2, 'related', 'Related')} />
+      <table class="kind-list">
+        <thead>
+          <tr><th>Page</th><th>Where</th>{relatedNotes && <th>Why</th>}</tr>
+        </thead>
+        <tbody>
+          {related.map((item) => (
+            <tr>
+              <td set:html={item.html} />
+              <td>{where(item.link)}</td>
+              {relatedNotes && <td set:html={item.note ?? ''} />}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Fragment>
+  )}
+</div>

@@ -1,0 +1,77 @@
+---
+/** Every decision, with a filter by status. */
+import { getCollection } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { Badge } from '@astrojs/starlight/components';
+import { DECISION_STATUSES, DECISION_VARIANT, shortTitle } from '../kinds/decision';
+import { statusLabel } from '../kinds';
+import { pageUrl } from '../lib/notes';
+import { getOptions } from '../options';
+
+const owner = getOptions().owner ?? 'the owner';
+
+const decisions = (await getCollection('docs', (entry) => entry.data.kind === 'decision'))
+  .map((entry) => ({ url: pageUrl(entry.id), data: entry.data as Extract<typeof entry.data, { kind: 'decision' }> }))
+  .sort((a, b) => a.data.number.localeCompare(b.data.number));
+const counts = Object.fromEntries(DECISION_STATUSES.map((s) => [s, decisions.filter((d) => d.data.status === s).length]));
+const statuses = DECISION_STATUSES.filter((s) => counts[s] > 0);
+---
+
+<StarlightPage frontmatter={{ title: 'Decisions', tableOfContents: false }}>
+  <p>
+    One file per decision, numbered. A decision marked <strong>Locked</strong> is
+    settled: it changes only through a new decision that supersedes it, written
+    after {owner} says so. <strong>Proposed</strong> decisions wait for {owner}'s word.
+    Each page starts with its status, dates, the words that started it and what it supersedes
+    or amends; see <a href={pageUrl("guide/kinds/decision")}>the decision kind</a>.
+  </p>
+
+  <div class="status-filter" role="group" aria-label="Filter by status">
+    <button type="button" data-status="" aria-pressed="true">All <span class="count">{decisions.length}</span></button>
+    {statuses.map((s) => (
+      <button type="button" data-status={s} aria-pressed="false">{statusLabel(s)} <span class="count">{counts[s]}</span></button>
+    ))}
+  </div>
+
+  <table class="decisions">
+    <thead><tr><th>No.</th><th>Decision</th><th>Status</th><th>Date</th></tr></thead>
+    <tbody>
+      {decisions.map(({ url, data }) => (
+        <tr data-status={data.status}>
+          <td><a href={url}>{data.number}</a></td>
+          <td><a href={url}>{shortTitle(data.title)}</a></td>
+          <td><Badge text={statusLabel(data.status)} variant={DECISION_VARIANT[data.status]} /></td>
+          <td>{data.date}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  <p class="status-filter-empty" aria-live="polite" hidden>No decision has that status.</p>
+</StarlightPage>
+
+<script>
+  // Filter the table by status; ?status=locked in the address selects a filter on load.
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('.status-filter button'));
+  const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('table.decisions tbody tr'));
+  const empty = document.querySelector<HTMLElement>('.status-filter-empty');
+  const known = new Set(buttons.map((button) => button.dataset.status ?? ''));
+
+  function apply(status: string) {
+    let shown = 0;
+    for (const row of rows) {
+      const visible = !status || row.dataset.status === status;
+      row.hidden = !visible;
+      if (visible) shown += 1;
+    }
+    for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.status === status));
+    if (empty) empty.hidden = shown > 0;
+    const url = new URL(location.href);
+    if (status) url.searchParams.set('status', status);
+    else url.searchParams.delete('status');
+    history.replaceState(null, '', url);
+  }
+
+  for (const button of buttons) button.addEventListener('click', () => apply(button.dataset.status ?? ''));
+  const requested = (new URL(location.href).searchParams.get('status') ?? '').toLowerCase();
+  apply(known.has(requested) ? requested : '');
+</script>

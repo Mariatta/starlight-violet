@@ -1,0 +1,12 @@
+/* Content column: Starlight centres a 45rem column in the space left of the
+   table of contents, which leaves a wide empty gutter on large screens. Notes
+   are table-heavy, so the column is wider and starts at the sidebar. On by
+   default; the `wide: false` option leaves Starlight's layout alone. */
+:root {
+  --sl-content-width: 64rem;
+}
+@media (min-width: 72rem) {
+  [data-has-sidebar][data-has-toc] .main-pane {
+    --sl-content-margin-inline: 0 auto;
+  }
+}

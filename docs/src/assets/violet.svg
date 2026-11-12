@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Violet">
+  <g fill="#7c3aed">
+    <ellipse cx="16" cy="8.5" rx="5" ry="7"/>
+    <ellipse cx="16" cy="8.5" rx="5" ry="7" transform="rotate(72 16 16)"/>
+    <ellipse cx="16" cy="8.5" rx="5" ry="7" transform="rotate(144 16 16)"/>
+    <ellipse cx="16" cy="8.5" rx="5" ry="7" transform="rotate(216 16 16)"/>
+    <ellipse cx="16" cy="8.5" rx="5" ry="7" transform="rotate(288 16 16)"/>
+  </g>
+  <g fill="#a78bfa">
+    <ellipse cx="16" cy="10" rx="2.6" ry="4.2"/>
+    <ellipse cx="16" cy="10" rx="2.6" ry="4.2" transform="rotate(72 16 16)"/>
+    <ellipse cx="16" cy="10" rx="2.6" ry="4.2" transform="rotate(144 16 16)"/>
+    <ellipse cx="16" cy="10" rx="2.6" ry="4.2" transform="rotate(216 16 16)"/>
+    <ellipse cx="16" cy="10" rx="2.6" ry="4.2" transform="rotate(288 16 16)"/>
+  </g>
+  <circle cx="16" cy="16" r="3.2" fill="#facc15"/>
+</svg>

@@ -1,0 +1,14 @@
+---
+/** The header of a risk page: Violet's header, then the risk's own fields. */
+import PageHeader from 'starlight-violet/components/PageHeader.astro';
+
+const { data } = Astro.props;
+---
+
+<table class="kind-meta">
+  <tbody>
+    <tr><th>Likelihood</th><td>{data.likelihood}</td></tr>
+    <tr><th>Owner</th><td>{data.owner}</td></tr>
+  </tbody>
+</table>
+<PageHeader data={data} />

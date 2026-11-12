@@ -1,0 +1,55 @@
+---
+/** The structured part of a handoff: status, parties, inputs, questions, steps. */
+import type { CollectionEntry } from 'astro:content';
+import { Badge } from '@astrojs/starlight/components';
+import { STATUS_VARIANT } from '../kinds/handoff';
+import { statusLabel } from '../kinds';
+import { readDecisions } from '../lib/records';
+import { getOptions } from '../options';
+
+interface Props {
+  data: Extract<CollectionEntry<'docs'>['data'], { kind: 'handoff' }>;
+}
+const { data } = Astro.props;
+const date = data.date.toISOString().slice(0, 10);
+const open = data.open_questions.filter((q) => !q.answer).length;
+const decisionUrls = new Map(readDecisions().map((d) => [d.number, d.url]));
+---
+
+<div class="handoff-header">
+  <table class="handoff-meta">
+    <tbody>
+      <tr><th>Status</th><td><Badge text={statusLabel(data.status)} variant={STATUS_VARIANT[data.status]} /></td></tr>
+      <tr><th>From</th><td>{data.from}</td></tr>
+      <tr><th>To</th><td>{data.to}</td></tr>
+      <tr><th>Date</th><td>{date}</td></tr>
+      {data.decisions.length > 0 && (
+        <tr><th>Decisions</th><td>{data.decisions.map((d) => decisionUrls.has(d) ? <a href={decisionUrls.get(d)}>decision {d}</a> : <span>decision {d}</span>)}</td></tr>
+      )}
+      <tr><th>Read first</th><td><ol class="inputs">{data.inputs.map((i) => <li><code>{i}</code></li>)}</ol></td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="open-questions">Open questions <small>{open} of {data.open_questions.length} open</small></h2>
+  {data.open_questions.length === 0 ? (
+    <p>None.</p>
+  ) : (
+    <table class="questions">
+      <thead><tr><th></th><th>Question</th><th>Blocks</th><th>Owner</th><th>Answer</th></tr></thead>
+      <tbody>
+        {data.open_questions.map((q) => (
+          <tr id={q.id.toLowerCase()} class={q.answer ? 'answered' : 'open'}>
+            <td><code>{q.id}</code></td>
+            <td set:html={q.question} />
+            <td>{q.blocks}</td>
+            <td>{q.owner ?? getOptions().owner ?? ''}</td>
+            <td>{q.answer ?? <em>open</em>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+
+  <h2 id="next-steps">Next steps</h2>
+  <ol class="steps">{data.next_steps.map((s) => <li>{s}</li>)}</ol>
+</div>
