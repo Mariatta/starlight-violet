@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { getKind, progressBar, statusBadge, statusLabel } from '../kinds';
 import { getOptions } from '../options';
 import { idFor, issueRefs, issueUrl, notesDir, notesPages, notesRel, pageUrl, readKind, readPage, sectionDescription, sections, slugify, splitTitle, words, type PageInfo } from '../lib/notes';
-import { planFor, type Plan } from '../lib/plans';
+import { planFor, planningFolder, type Plan } from '../lib/plans';
 import { readDecisions, readHandoffs } from '../lib/records';
 
 type Attributes = Record<string, string | null | undefined>;
@@ -102,12 +102,14 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
   /**
    * Every planning page, newest change first, optionally narrowed:
    * `::planning{status=draft}`, `::planning{topic=export-screen}`,
-   * `::planning{type=plan}`.
+   * `::planning{type=plan}`, `::planning{in=work}` (one top-level folder).
    */
-  planning({ status, topic, type }) {
+  planning({ status, topic, type, in: section }, file) {
+    const folder = topic ? planningFolder(topic, file) : undefined;
     const rows = readKind('planning')
       .filter((p) => !status || p.data.status === status)
-      .filter((p) => !topic || p.topic === topic || p.folder === topic)
+      .filter((p) => !topic || p.folder === folder)
+      .filter((p) => !section || p.section === section)
       .filter((p) => !type || p.data.type === type)
       .sort((a, b) => String(b.data.updated).localeCompare(String(a.data.updated)) || a.url.localeCompare(b.url))
       .map(({ url, title, topicLabel, data }) => [
@@ -122,15 +124,23 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
     return table(['Page', 'Topic', 'Type', 'Status', 'Progress', 'Last updated', 'Issues'], rows);
   },
 
-  /** One row per folder of planning pages, wherever it is: its pages and their statuses. */
-  topics() {
+  /**
+   * One row per folder of planning pages, wherever it is: its pages and their
+   * statuses. `::topics{in=work}` lists one top-level folder's.
+   */
+  topics({ in: section }) {
     const byTopic = new Map<string, PageInfo[]>();
-    for (const page of readKind('planning')) byTopic.set(page.folder, [...(byTopic.get(page.folder) ?? []), page]);
+    for (const page of readKind('planning').filter((p) => !section || p.section === section)) {
+      byTopic.set(page.folder, [...(byTopic.get(page.folder) ?? []), page]);
+    }
+    // Folders that share a name are told apart by their path.
+    const names = [...byTopic.values()].map((pages) => pages[0].topic);
+    const shared = new Set(names.filter((name, i) => names.indexOf(name) !== i));
     const rows = [...byTopic.values()].map((pages) => {
       const latest = pages.map((p) => String(p.data.updated)).sort().at(-1) ?? '';
       const issues = [...new Set(pages.flatMap((p) => issueRefs(p.data)))];
       return [
-        pages[0].topicLabel,
+        shared.has(pages[0].topic) ? pages[0].folder : pages[0].topicLabel,
         pages
           .map((p) => `[${statusLabel(String(p.data.type))}](${p.url}) ${statusBadge('planning', String(p.data.status))}`)
           .join('<br>'),

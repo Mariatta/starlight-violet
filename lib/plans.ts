@@ -246,14 +246,29 @@ export function planningFolders(topic: string): string[] {
  */
 export function planFor(file: string | undefined, topic?: string | null): Plan | undefined {
   if (topic) {
-    const folders = planningFolders(topic);
-    if (folders.length > 1) {
-      throw new Error(`topic=${topic} names more than one planning folder (${folders.join(', ')}); give its path, such as topic=${folders[0]}`);
+    const folder = planningFolder(topic, file);
+    if (folder !== undefined) return planInFolder(join(notesDir(), folder));
+    // A plan whose pages declare no kind: the folder at that path, or under planning/ as before.
+    for (const path of [topic, join('planning', topic)]) {
+      const plan = planInFolder(join(notesDir(), path));
+      if (plan) return plan;
     }
-    return folders[0] === undefined ? undefined : planInFolder(join(notesDir(), folders[0]));
+    return;
   }
   if (!file || !file.startsWith(notesDir())) return;
   return readPlan(file) ?? planInFolder(dirname(file));
+}
+
+/**
+ * The one planning folder `topic` names, or undefined when none does; a name
+ * two folders share fails the build, naming the page that used it.
+ */
+export function planningFolder(topic: string, file: string | undefined): string | undefined {
+  const folders = planningFolders(topic);
+  if (folders.length > 1) {
+    throw new Error(`${file ?? 'a site page'}: topic=${topic} names more than one planning folder (${folders.join(', ')}); give its path, such as topic=${folders[0]}`);
+  }
+  return folders[0];
 }
 
 function planInFolder(folder: string): Plan | undefined {

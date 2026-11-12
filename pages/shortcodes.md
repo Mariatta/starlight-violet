@@ -17,6 +17,7 @@ turned on says that nothing matches.
 | `::planning` | Every planning page: topic, type, status, a plan's tasks done as a progress bar, last updated, issues; newest change first |
 | `::planning{status=draft}` | The planning pages with that status |
 | `::planning{topic=export-screen}` | The pages of one planning folder, by its name or its path, such as `work/export-screen` |
+| `::planning{in=work}`, `::topics{in=work}` | Only the planning pages in one top-level folder |
 | `::planning{type=plan}` | The pages of one type: `context`, `brainstorm`, `spec` or `plan` |
 
 Attributes combine: `::planning{topic=export-screen status=draft}`.
