@@ -143,8 +143,10 @@ export function notesLoader(): Loader {
             const data: Record<string, unknown> = { ...page.data, title: page.data.title ?? title ?? words(stem), source: shown };
             // The page's link to its Markdown file on GitHub. Violet's own guide
             // pages come from the package, not the repo, so they get none.
+            // With sourceLink on, a page Violet can build no address for gets no
+            // link, rather than Starlight's editLink.baseUrl plus a path it made up.
             const source = role === 'guide' ? undefined : sourceUrl(file);
-            if (page.data.editUrl === undefined && (role === 'guide' || source)) data.editUrl = source ?? false;
+            if (page.data.editUrl === undefined && (role === 'guide' || source || options.sourceLink)) data.editUrl = source ?? false;
             if (role === 'notes' && options.shortLabels.some((prefix) => rel.startsWith(prefix)) && !/README\.md$/i.test(rel)) {
               data.sidebar = { label: words(stem) };
             }

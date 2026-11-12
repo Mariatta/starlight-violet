@@ -29,7 +29,7 @@ violet({
 | `acronyms` | `[]` | Words written in capitals in labels made from file names |
 | `sidebar` | `'folders'` | Build the sidebar from the notes' folders, or `false` to keep the site's own |
 | `github` | none | `{ org, repo, branch }`: where `#12` and `other-repo#34` link, and the repository and branch (default `main`) source links name |
-| `sourceLink` | none | `'view'` adds a "View source" link at the foot of each page, to its Markdown file on GitHub; `'edit'` an "Edit page" link to GitHub's editor. Needs `github`, and covers files in the site's own git checkout: notes kept in another repository get no link. The "View source" label is English; other languages set `page.editLink` in their translations |
+| `sourceLink` | none | `'view'` adds a "View source" link at the foot of each page, to its Markdown file on GitHub; `'edit'` an "Edit page" link to GitHub's editor. Needs `github`, and covers files in the site's own git checkout: notes kept in another repository get no link. The "View source" label is English, and renames every edit link on the site; other languages set `page.editLink` in their translations. Links name `github.branch`, so on a preview build of another branch, a file added there 404s until it is merged |
 | `owner` | none | Whose notes these are: the default owner of a handoff's questions |
 | `sectionDescriptions` | `{}` | A one-line description per top-level folder, for its card on the landing page |
 | `files` | `false` | `{ prefix: '/notes/', private: ['hours'] }` serves the notes' other files: images, HTML mockups, CSS, scripts, JSON, CSV and plain text, never dotfiles or environment files. `types: { yaml: 'text/plain' }` adds an extension by its content type |
