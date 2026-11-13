@@ -22,9 +22,9 @@ violet({
 | `notes` | required | The notes folder, relative to the site's root. Any name and place: `../docs`, `../notes`, `../handoffs`, or another repository's checkout |
 | `kinds` | `[]` | Built-in kinds this site uses: `planning`, `reference`, `decision`, `handoff` |
 | `customKinds` | `{}` | Kinds the site defines itself, by name; see [Extending](../guide/extending/) |
-| `require` | `{}` | Globs (relative to the notes) mapped to the kind their files must declare. `*` stays in one folder, `**` crosses folders, `?` is one character |
-| `looseFiles` | none | File the notes' top-level files under this folder, such as `reference` |
-| `skip` | `[]` | Globs of notes files to leave out, such as `README.md` |
+| `require` | `{}` | Globs (relative to the notes) mapped to the kind their files must declare. `*` stays in one folder, `**` crosses folders, `?` is one character. A top-level `index.md`, the landing page, is exempt |
+| `looseFiles` | none | File the notes' top-level files under this folder, such as `reference`, except a top-level `index.md`, the landing page |
+| `skip` | `[]` | Globs of notes files to leave out, such as `README.md`. It applies to a top-level `index.md` too |
 | `shortLabels` | `[]` | Folders whose pages the sidebar labels by file name instead of heading |
 | `acronyms` | `[]` | Words written in capitals in labels made from file names |
 | `sidebar` | `'folders'` | Build the sidebar from the notes' folders, or `false` to keep the site's own |

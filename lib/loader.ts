@@ -134,6 +134,7 @@ export function notesLoader(): Loader {
             }
             const sitePathOf = role === 'guide' ? `${GUIDE}/${rel}` : rel;
             const id = role === 'guide' ? slugify(`${GUIDE}/${rel.replace(/\.md$/, '')}`) : idFor(file, dir);
+            if (taken.has(id) && id === 'index') throw new Error(`${shown} and ${taken.get(id)} are both a landing page; keep one`);
             if (taken.has(id)) throw new Error(`${shown} and ${taken.get(id)} both want the address /${id}/; rename one`);
             taken.set(id, shown);
 

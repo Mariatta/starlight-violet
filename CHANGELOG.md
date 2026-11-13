@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- An `index.md` at the top of the notes folder is the site's landing page, so it can live with the notes instead of in the site's `src/content/docs/`. It needs no `kind`, `require` and `looseFiles` leave it alone, and it is not listed among the loose pages. Having both is an error naming the two files.
+- An `index.md` at the top of the notes folder is the site's landing page, so it can live with the notes instead of in the site's `src/content/docs/`. It needs no `kind`, and the `require` and `looseFiles` options leave it alone; it is not listed among the loose pages. Having both is an error naming the two files. Its front matter is read as if it were `src/content/docs/index.md`, so a hero image path is relative to that folder. A generated page (`extraPages`) at `index.md` is the landing page too.
 
 ## 0.2.1 (2026-11-12)
 

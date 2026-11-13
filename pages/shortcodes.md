@@ -62,7 +62,9 @@ leaves folders out.
 The landing page is an `index.md` at the top of the notes folder, kept with
 the notes, or else the site's own `src/content/docs/index.md`; one or the
 other, not both. It needs no `kind`, and the `require` and `looseFiles`
-options leave it alone. With Starlight's `template: splash` and `hero` front
+options leave it alone. Starlight reads its front matter as if the file were
+`src/content/docs/index.md`, so a hero image path is relative to that folder,
+not to the notes. With Starlight's `template: splash` and `hero` front
 matter, it looks like this:
 
 ```markdown
