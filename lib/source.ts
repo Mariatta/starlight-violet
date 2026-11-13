@@ -1,35 +1,60 @@
 /**
- * Reading a note's Markdown source line by line, as the renderer will see it,
- * and remembering what was worked out from a file until the file changes.
- * Shared by the plan, heading and table-row readers, so they agree with each
- * other and with the rendered page.
+ * Reading a note's Markdown as the renderer will see it, with the site's own
+ * parser, and remembering what was worked out from a file until the file
+ * changes. Shared by the plan, heading and table-row readers, so they agree
+ * with each other and with the rendered page.
  */
 import { existsSync, statSync } from 'node:fs';
+import type { Root } from 'mdast';
+import { markdownToMdast, type Features } from 'satteri';
+
+// The features the site's Markdown is parsed with, recorded when Violet sets up the
+// processor. Astro loads the config and the content loader as separate module
+// instances, so they live on the global object.
+const FEATURES = Symbol.for('starlight-violet.parse-features');
+const store = globalThis as Record<symbol, unknown>;
+
+/** Record the features the site's Markdown is parsed with, so `parse` reads notes as the page renders them. */
+export function setParseFeatures(features: Features): void {
+  store[FEATURES] = features;
+}
+
+const trees = new Map<string, Root>();
 
 /**
- * Which lines are inside fenced code, the fence lines included. A fence
- * opens with three or more backticks or tildes (indented at most three
- * spaces; a backtick fence's info string has no backtick) and closes on a
- * line of the same character, at least as long, and nothing else; an
- * unclosed fence runs to the end, as in CommonMark.
+ * A body's Markdown tree, read by the same parser and features the site
+ * renders with, so headings, tables and parts are found where the page has
+ * them. The last few hundred trees are kept, since one body is asked about
+ * many times.
  */
-export function fencedLines(lines: readonly string[]): boolean[] {
-  const inside: boolean[] = [];
-  let fence: { char: string; length: number } | undefined;
-  for (const line of lines) {
-    if (fence) {
-      inside.push(true);
-      const close = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(line)?.[1];
-      if (close && close[0] === fence.char && close.length >= fence.length) fence = undefined;
-      continue;
-    }
-    const open = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
-    if (open && !(open[1][0] === '`' && open[2].includes('`'))) {
-      fence = { char: open[1][0], length: open[1].length };
-      inside.push(true);
-    } else inside.push(false);
+export function parse(body: string): Root {
+  let tree = trees.get(body);
+  if (tree) {
+    trees.delete(body);
+  } else {
+    const features = (store[FEATURES] as Features | undefined) ?? { gfm: true, directive: true };
+    tree = markdownToMdast(body, { features }) as Root;
   }
-  return inside;
+  trees.set(body, tree);
+  if (trees.size > 300) trees.delete(trees.keys().next().value!);
+  return tree;
+}
+
+/** A node's text as it reads: its text and code, without raw HTML tags. */
+export function textOf(node: { type: string; value?: string; children?: unknown[] }): string {
+  if (node.type === 'text' || node.type === 'inlineCode') return node.value ?? '';
+  return ((node.children ?? []) as (typeof node)[]).map(textOf).join('');
+}
+
+/** Every node of a type in a tree, in document order. */
+export function nodesOf<T>(tree: { children?: unknown[] }, type: string): T[] {
+  const found: T[] = [];
+  const walk = (node: { type?: string; children?: unknown[] }) => {
+    if (node.type === type) found.push(node as T);
+    for (const child of (node.children ?? []) as (typeof node)[]) walk(child);
+  };
+  walk(tree);
+  return found;
 }
 
 const memo = new Map<string, { mtime: number; value: unknown }>();

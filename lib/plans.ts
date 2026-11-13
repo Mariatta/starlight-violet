@@ -8,7 +8,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Slugger from 'github-slugger';
 import { idFor, isSkipped, LANDING, notesDir, notesRel, pageUrl, readKind, readPage, splitTitle } from './notes';
-import { cached, fencedLines } from './source';
+import { cached, nodesOf, parse, textOf } from './source';
 
 export interface PlanTask {
   number: number;
@@ -70,12 +70,13 @@ export function pageParts(id: string, data: Record<string, unknown>, body: strin
   const url = pageUrl(id);
   if (!isSplit(data)) return [{ id, url, body, anchors: headings(body) }];
   const lines = body.split('\n');
-  const code = fencedLines(lines);
-  const starts: { line: number; text: string }[] = [];
-  lines.forEach((line, index) => {
-    const match = !code[index] && /^#\s+(.+?)\s*#*\s*$/.exec(line);
-    if (match) starts.push({ line: index, text: match[1] });
-  });
+  // Each part starts at a top-level # heading, as the parser reads the body.
+  const starts = (parse(body).children as { type: string; depth?: number; position?: { start: { line: number } } }[])
+    .filter((node) => node.type === 'heading' && node.depth === 1 && node.position)
+    .map((node) => {
+      const line = node.position!.start.line - 1;
+      return { line, text: lines[line].replace(/^ {0,3}#\s+/, '').replace(/\s+#+\s*$/, '').trim() };
+    });
   const slugger = new Slugger();
   const overview = lines.slice(0, starts[0]?.line ?? lines.length).join('\n');
   const parts: Part[] = [{ id, url, body: overview, anchors: headings(overview) }];
@@ -114,69 +115,18 @@ interface Heading {
   slug: string;
 }
 
-/** A line that starts a block other than a paragraph, when no paragraph is open. */
-const BLOCK_START = /^(?: {4}|\s{0,3}(?:[-+*](?:\s|$)|\d{1,9}[.)](?:\s|$)|>|<[a-zA-Z/!?]|\[[^\]]+\]:))/;
-/** A line that ends an open paragraph by starting another block; an indented line or a definition cannot. */
-const INTERRUPTS = /^\s{0,3}(?:[-+*]\s+\S|1[.)]\s+\S|>|<[a-zA-Z/!?])/;
-const THEMATIC_BREAK = /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/;
-/** A table's delimiter row: dashes between pipes. A row of dashes with no pipe underlines a heading instead. */
-export function isDelimiterRow(line: string): boolean {
-  return line.includes('|') && /^ {0,3}\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/.test(line);
-}
-
 /**
- * The body's headings with the anchors the renderer gives them, in order:
- * `#` headings, and setext ones (a paragraph underlined with `===` or
- * `---`). Fenced code is skipped. Headings inside quotes and list items are
- * not read, nor is a code fence written inside a raw HTML block told apart.
+ * The body's headings with the anchors the renderer gives them, in document
+ * order, as the site's parser reads the body: `#` and setext headings, at
+ * any depth of nesting. The text is the heading's as it reads, without raw
+ * HTML tags. A heading with no text gets no anchor.
  */
 export function headings(body: string): Heading[] {
   const slugger = new Slugger();
-  const found: Heading[] = [];
-  const lines = body.split('\n');
-  const code = fencedLines(lines);
-  // The block being read until a blank line: a paragraph (its lines so far), or another block.
-  let paragraph: string[] | undefined;
-  // Another block: 'html' runs to the blank line whatever it holds; 'block' (list, quote, table) ends at a # heading.
-  let other: false | 'html' | 'block' = false;
-  const kindOf = (line: string) => (/^\s{0,3}</.test(line) ? 'html' : 'block');
-  const add = (depth: number, text: string) => found.push({ depth, text, slug: slugger.slug(text) });
-  for (const [index, line] of lines.entries()) {
-    if (code[index] || !line.trim()) {
-      paragraph = undefined;
-      other = false;
-      continue;
-    }
-    const atx = other === 'html' ? null : /^ {0,3}(#{1,6})(?:\s+(.*?))?\s*#*\s*$/.exec(line);
-    if (atx) {
-      // A # heading ends whatever block came before it.
-      if (atx[2]) add(atx[1].length, atx[2]);
-      paragraph = undefined;
-      other = false;
-      continue;
-    }
-    if (paragraph) {
-      const underline = /^ {0,3}(=+|-+)\s*$/.exec(line);
-      if (underline) {
-        add(underline[1][0] === '=' ? 1 : 2, paragraph.join(' '));
-        paragraph = undefined;
-      } else if (THEMATIC_BREAK.test(line) || INTERRUPTS.test(line) || (line.includes('|') && isDelimiterRow(lines[index + 1] ?? ''))) {
-        paragraph = undefined;
-        other = THEMATIC_BREAK.test(line) ? false : kindOf(line);
-      } else paragraph.push(line.trim());
-      continue;
-    }
-    if (other) {
-      // An HTML block can interrupt a list item or quote, and then holds what follows.
-      if (other === 'block' && /^\s{0,3}<[a-zA-Z/!?]/.test(line)) other = 'html';
-      continue;
-    }
-    if (THEMATIC_BREAK.test(line)) continue;
-    // A table, when its next line is a delimiter row; a | line without one is a paragraph.
-    if (BLOCK_START.test(line) || (line.includes('|') && isDelimiterRow(lines[index + 1] ?? ''))) other = kindOf(line);
-    else paragraph = [line.trim()];
-  }
-  return found;
+  return nodesOf<{ type: string; depth: number; children: unknown[] }>(parse(body), 'heading')
+    .map((node) => ({ depth: node.depth, text: textOf(node).trim() }))
+    .filter(({ text }) => text)
+    .map(({ depth, text }) => ({ depth, text, slug: slugger.slug(text) }));
 }
 
 function plain(text: string): string {
