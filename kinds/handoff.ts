@@ -1,5 +1,6 @@
 /** The handoff kind: a document one agent writes so another can pick up. */
 import { z } from 'astro/zod';
+import type { Inline } from '../options';
 
 /** The level-two headings every handoff body has, exactly and in this order. */
 export const HANDOFF_SECTIONS = [
@@ -56,15 +57,11 @@ export const handoffSchema = z.object({
 });
 
 /**
- * `<` outside code spans as text, so a placeholder such as `<id>` shows
- * rather than becoming a tag; an autolink (`<https://...>`) stays a link.
- */
-/**
  * Render the inline-Markdown fields to HTML in place, so their references
  * link as the body's do. `blocks`, `answer` and `next_steps` were plain text
  * before they were Markdown, so raw HTML in them stays text.
  */
-export async function renderHandoff(data: z.infer<typeof handoffSchema>, inline: (text: string, options?: { html?: boolean }) => Promise<string>) {
+export async function renderHandoff(data: z.infer<typeof handoffSchema>, inline: Inline) {
   for (const question of data.open_questions) {
     question.question = await inline(question.question);
     if (question.blocks) question.blocks = await inline(question.blocks, { html: false });
