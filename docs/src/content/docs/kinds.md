@@ -18,8 +18,8 @@ fails the build instead of rendering bare.
 |---|---|---|---|---|
 | `planning` | Work before and while it is done: context, brainstorm, spec and plan, as `type` | `updated` | None | [Export screen plan](../planning/export-screen/plan/) |
 | `reference` | How something built works: a design document, a runbook, a guide | `updated` | None | [Architecture](../reference/architecture/) |
-| `decision` | One numbered architecture decision | `date` | Context, Decision, Consequences | [Decision 0001](../decisions/0001-render-notes-in-place/) |
-| `handoff` | What one session leaves so the next can start | `date` | Summary, Context, What is decided, What is open, First task, Files, in that order | [The examples site](../handoffs/examples-site/) |
+| `decision` | One numbered architecture decision | `date` | Context, Decision, Consequences | [Decision 0003](../decisions/0003-build-exports-in-a-background-job/) |
+| `handoff` | What one session leaves so the next can start | `date` | Summary, Context, What is decided, What is open, First task, Files, in that order | [Background export jobs](../handoffs/export-jobs/) |
 
 | Kind | Statuses |
 |---|---|
