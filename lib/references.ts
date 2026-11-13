@@ -8,8 +8,8 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { idFor, isSkipped, LANDING, notesDir, notesRel, pageUrl, readPage, splitTitle, type Page } from './notes';
-import { anchorUrl, headings, isDelimiterRow, isSplit, pageParts, planFor } from './plans';
-import { cached, fencedLines } from './source';
+import { anchorUrl, headings, isSplit, pageParts, planFor } from './plans';
+import { cached, nodesOf, parse, textOf } from './source';
 
 /** A table whose first header cell is one of these numbers its rows: `#` rows are tasks. */
 const ROW_KINDS: Record<string, 'task' | 'stage' | 'step' | 'phase'> = {
@@ -36,9 +36,6 @@ export function isRowLabel(cell: string): boolean {
   return ROW_LABEL.test(cell.trim());
 }
 
-function cells(line: string): string[] {
-  return line.trim().replace(/^\||\|$/g, '').split('|').map(cellText);
-}
 
 function page(file: string): Page {
   return cached(file, 'page', () => readPage(file));
@@ -57,38 +54,26 @@ function markdownFiles(dir: string): string[] {
   );
 }
 
-/** A table cell as its text reads: `**#**` is `#`, `` `1` `` is `1`, as rows.ts sees them rendered. */
-function cellText(cell: string): string {
-  return cell.replace(/\\(.)/g, '$1').replace(/[*_`]/g, '').trim();
-}
 
 /**
- * The numbered rows of a body's tables, by kind and label. Fenced code is
- * skipped as the renderer skips it (see source.ts), and so is a line
- * indented four spaces, which is code too.
+ * The numbered rows of a body's tables, by kind and label: every table the
+ * site's parser finds, read as rows.ts reads it rendered (the first header
+ * cell names the kind, each row's first cell its label).
  */
 export function tableRows(body: string): Map<string, Map<string, string>> {
   const rows = new Map<string, Map<string, string>>();
-  const lines = body.split('\n');
-  const code = fencedLines(lines);
-  const delimiter = isDelimiterRow;
-  let kind: string | undefined;
-  lines.forEach((line, index) => {
-    // A table's lines carry pipes, leading or not; a line without one ends it.
-    if (code[index] || /^ {4}/.test(line) || !line.includes('|')) {
-      kind = undefined;
-      return;
+  type Node = { type: string; children?: Node[] };
+  for (const table of nodesOf<Node>(parse(body), 'table')) {
+    const [header, ...body] = table.children ?? [];
+    const kind = rowKind(textOf(header?.children?.[0] ?? { type: 'text' }));
+    if (!kind) continue;
+    for (const row of body) {
+      const label = textOf(row.children?.[0] ?? { type: 'text' }).trim();
+      if (!isRowLabel(label)) continue;
+      if (!rows.has(kind)) rows.set(kind, new Map());
+      if (!rows.get(kind)!.has(label)) rows.get(kind)!.set(label, rowId(kind, label));
     }
-    if (delimiter(lines[index + 1] ?? '') && !code[index + 1]) {
-      kind = rowKind(cells(line)[0] ?? '');
-      return;
-    }
-    if (!kind || delimiter(line)) return;
-    const label = cells(line)[0] ?? '';
-    if (!isRowLabel(label)) return;
-    if (!rows.has(kind)) rows.set(kind, new Map());
-    if (!rows.get(kind)!.has(label)) rows.get(kind)!.set(label, rowId(kind, label));
-  });
+  }
   return rows;
 }
 
