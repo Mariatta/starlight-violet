@@ -4,8 +4,10 @@
  * Markdown. Raw HTML in them shows as text, so a placeholder such as `<id>`
  * is not lost, and whatever the parser reads as a block (a list, heading,
  * quote, code block, table, definition) is flattened back into the line,
- * its markers kept as written, so "1. Run the tests" is not a list inside
- * a step. Emphasis, code, links and references inside work as in the body.
+ * the markers around its text kept as written, so "1. Run the tests" is not
+ * a list inside a step. Emphasis, code, links and references inside work as
+ * in the body; a marker inside a paragraph's own lines, such as the `>` on a
+ * quote's second line, is gone, as the parser read it.
  *
  * Everything is decided by the parser, not by guessing over the text. The
  * loader marks such a render by registering its source (`renderPlain`), and
@@ -47,14 +49,25 @@ interface Node {
   position?: { start: { offset?: number }; end: { offset?: number } };
 }
 
-/** A block's inline content: its paragraphs' children, with the source between them (markers, line ends) as text. */
+/** Inline nodes, which flattening keeps as they are; the parser has already read their escapes and entities. */
+const INLINE = new Set([
+  'text', 'emphasis', 'strong', 'delete', 'inlineCode', 'break', 'link', 'linkReference', 'image', 'imageReference',
+  'footnoteReference', 'html', 'textDirective', 'inlineMath', 'superscript', 'subscript',
+]);
+
+/**
+ * A block's inline content: the inline nodes inside it, with the source
+ * between them (list markers, `#`, `>`, table pipes, line ends) as text. A
+ * block with no inline content (code, a thematic break, a definition) reads
+ * as its source.
+ */
 function flatten(node: Node, source: string): Node[] {
-  if (node.type === 'paragraph') return node.children ?? [];
+  if (INLINE.has(node.type)) return [node];
   const start = node.position?.start.offset;
   const end = node.position?.end.offset;
-  if (start === undefined || end === undefined) return [];
-  // A leaf block (code, table, thematic break, definition, html) reads as written.
-  if (!node.children?.length || node.type === 'table') return [{ type: 'text', value: source.slice(start, end) }];
+  // Without positions (a node a plugin made), keep what can be kept.
+  if (start === undefined || end === undefined) return (node.children ?? []).flatMap((child) => flatten(child, source));
+  if (!node.children?.length) return [{ type: 'text', value: source.slice(start, end) }];
   const out: Node[] = [];
   let cursor = start;
   for (const child of node.children) {

@@ -270,10 +270,11 @@ export function notesLinksPlugin(): MdastPluginEntry {
           if (!value) return ctx.removeNode(node);
           ctx.setProperty(node, 'value', value);
         }
-        // Not inside a link, Markdown or raw HTML, nor a heading. Raw tags are
-        // counted within the paragraph or cell only: an HTML block elsewhere
-        // on the page does not hold this text.
-        for (let child: any = node, up: any = parent; up && up.type !== 'root'; child = up, up = ctx.parent(up as never)) {
+        // Not inside a link, Markdown or raw HTML, nor a heading. A raw <a>
+        // opened earlier in the paragraph, or in an HTML block before it, holds
+        // this text (browsers reopen it), so tags are counted up to the root;
+        // a tag inside a comment is not one.
+        for (let child: any = node, up: any = parent; up; child = up, up = ctx.parent(up as never)) {
           if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
           let open = 0;
           for (const sibling of up.children.slice(0, ctx.indexOf(child))) {
@@ -282,7 +283,6 @@ export function notesLinksPlugin(): MdastPluginEntry {
             open += (tags.match(/<a[\s>]/gi) ?? []).length - (tags.match(/<\/a\s*>/gi) ?? []).length;
           }
           if (open > 0) return;
-          if (up.type === 'paragraph' || up.type === 'tableCell') break;
         }
         const nodes = autolink(value, targets);
         if (nodes) ctx.replaceNode(node, nodes);
