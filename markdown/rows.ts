@@ -7,9 +7,9 @@
  * table rows and cells. A row whose anchor a heading of the page already has
  * gets none, so the page keeps one element per id.
  */
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { HastPluginEntry } from 'satteri';
-import { notesDir } from '../lib/notes';
 import { isRowLabel, renderedAnchors, rowId, rowKind } from '../lib/references';
 
 interface Element {
@@ -40,7 +40,7 @@ export function rowAnchorsPlugin(): HastPluginEntry {
           const kind = rowKind(text(child(child(child(table, 'thead'), 'tr'), 'th')));
           if (!kind) return;
           // Worked out on the first numbered table only, and cached per file.
-          used ??= new Set(file && file.startsWith(notesDir()) ? renderedAnchors(file) : []);
+          used ??= new Set(file && existsSync(file) ? renderedAnchors(file) : []);
           for (const row of child(table, 'tbody')?.children?.filter((c) => c.tagName === 'tr') ?? []) {
             const label = text(child(row, 'td')).trim();
             if (!isRowLabel(label)) continue;

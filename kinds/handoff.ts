@@ -61,7 +61,7 @@ export const handoffSchema = z.object({
  */
 export function escapeTags(text: string): string {
   // A code span closes on a run of as many backticks as opened it, as in CommonMark.
-  const spans = /(?<!\\)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g;
+  const spans = /(?<![\\`])(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g;
   const tags = (part: string) => part.replace(/<(?![a-z][a-z0-9+.-]*:[^\s>]*>)/gi, '&lt;');
   let out = '';
   let cursor = 0;

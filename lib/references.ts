@@ -200,7 +200,9 @@ export function renderedAnchors(file: string): Set<string> {
   return cached(file, 'anchors', () => {
     const { data, body } = page(file);
     const rest = splitTitle(body).body;
-    const anchors = isSplit(data) ? pageParts(idFor(file, notesDir()), data, rest).flatMap((part) => part.anchors) : headings(rest);
+    // Only a notes page is split into parts; a site page is one page.
+    const split = isSplit(data) && file.startsWith(notesDir());
+    const anchors = split ? pageParts(idFor(file, notesDir()), data, rest).flatMap((part) => part.anchors) : headings(rest);
     return new Set(anchors.map(({ slug }) => slug));
   });
 }
