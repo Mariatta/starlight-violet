@@ -60,10 +60,16 @@ export const handoffSchema = z.object({
  * rather than becoming a tag; an autolink (`<https://...>`) stays a link.
  */
 export function escapeTags(text: string): string {
-  return text
-    .split(/(`+[^`]*`+)/)
-    .map((part, index) => (index % 2 ? part : part.replace(/<(?![a-z][a-z0-9+.-]*:[^\s>]*>)/gi, '&lt;')))
-    .join('');
+  // A code span closes on a run of as many backticks as opened it, as in CommonMark.
+  const spans = /(?<!\\)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g;
+  const tags = (part: string) => part.replace(/<(?![a-z][a-z0-9+.-]*:[^\s>]*>)/gi, '&lt;');
+  let out = '';
+  let cursor = 0;
+  for (const m of text.matchAll(spans)) {
+    out += tags(text.slice(cursor, m.index)) + m[0];
+    cursor = m.index! + m[0].length;
+  }
+  return out + tags(text.slice(cursor));
 }
 
 /**
