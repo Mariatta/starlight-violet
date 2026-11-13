@@ -25,7 +25,7 @@
     <text x="515" y="88" font-size="12" fill="#5d5670">Redis</text>
     <text x="305" y="218" font-weight="600">Postgres</text>
     <text x="305" y="238" font-size="12" fill="#5d5670">events, RSVPs, venues</text>
-    <text x="515" y="218" font-weight="600">Export worker</text>
+    <text x="515" y="218" font-weight="600">Worker</text>
     <text x="515" y="238" font-size="12" fill="#5d5670">Celery</text>
     <text x="677" y="143" font-weight="600">Storage</text>
     <text x="677" y="163" font-size="12" fill="#5d5670">S3, photos, exports</text>

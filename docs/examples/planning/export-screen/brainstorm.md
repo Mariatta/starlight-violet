@@ -3,7 +3,7 @@ kind: planning
 type: brainstorm
 status: done
 created: 2026-10-22
-updated: 2026-10-24
+updated: 2026-10-27
 note: "Settled by decisions 0002 and 0003."
 related:
   - "[Context](context.md)"
