@@ -26,7 +26,10 @@ copies the CSV off the server to the welcome host's laptop. He and Sofia
 are the only two with shell access; everyone else asks in the organizer
 chat.
 
-## Exports in one week
+## Exports, 2026-10-13 to 2026-10-19
+
+Counted from the `export` lines in the server's shell history for that
+week; sizes and times from the command's own log line.
 
 | Export | Runs per week | Typical size | Slowest run (seconds) |
 |---|---:|---:|---:|
@@ -46,8 +49,6 @@ platform cuts requests off at 30 seconds. That is the
   slideshow at the December social.
 - Marcus: the venue list as a spreadsheet he can sort, so it stops being
   "the sacred restaurant spreadsheet" that only lives on his laptop.
-- Who besides organizers may see RSVPs, which hold names and emails, was
-  still open at handoff: see [question Q2](../../handoffs/export-jobs.md#q2).
 
 ## Constraints
 

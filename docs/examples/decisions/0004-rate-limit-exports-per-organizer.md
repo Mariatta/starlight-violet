@@ -4,7 +4,7 @@ number: "0004"
 title: "0004. Limit how many exports an organizer starts an hour"
 status: proposed
 date: 2026-11-05
-reason: "Raised in review of PR 2: a double-clicked button queued six photo archives."
+reason: "The spec left the limit open; in review of PR 2, repeated clicks queued six photo archives and made it urgent."
 ---
 
 # 0004. Limit how many exports an organizer starts an hour
@@ -13,7 +13,7 @@ reason: "Raised in review of PR 2: a double-clicked button queued six photo arch
 
 Since decision 0003 every export costs a job, a file and an email. In
 review of PR 2 one organizer queued six identical photo archives, 2.9 GB
-each, by pressing Start export repeatedly while the page was slow. The
+each, with repeated clicks on Start export while the page was slow. The
 club pays for that storage out of a shoestring budget.
 
 ## Decision
@@ -26,7 +26,7 @@ The number itself is open: [Q3](../handoffs/export-jobs.md#q3).
 
 ## Consequences
 
-- Duplicate clicks stop costing jobs and storage.
+- Repeated clicks stop costing jobs and storage.
 - An organizer preparing the year-end recap may hit the limit; the message
   has to say when they can try again.
 - Built in :task[8]{topic=export-screen}.

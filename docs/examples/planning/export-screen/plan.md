@@ -7,7 +7,7 @@ created: 2026-10-31
 updated: 2026-11-12
 note: "PR 2 is in review; Task 8 waits on [Q3](../../handoffs/export-jobs.md#q3)."
 issues:
-  - ref: "#12"
+  - ref: "foodie-club-app#12"
     title: "Export screen for organizers"
 stack:
   - "Django 5.2"
@@ -25,8 +25,8 @@ tasks:
   - { number: 1, status: done }
   - { number: 2, status: done }
   - { number: 3, status: done }
-  - { number: 4, status: done, issue: "#15" }
-  - { number: 5, status: in-review, issue: "#16" }
+  - { number: 4, status: done, issue: "foodie-club-app#15" }
+  - { number: 5, status: in-review, issue: "foodie-club-app#16" }
   - { number: 6, status: in-progress }
   - { number: 7, status: todo }
   - { number: 8, status: todo }
@@ -36,13 +36,13 @@ prs:
     tasks: [1, 2, 3]
     ships: "The screen, writing RSVPs and venues in the request"
     status: done
-    pull: "#14"
+    pull: "foodie-club-app#14"
   - number: 2
     branch: export-screen/02-background-jobs
     tasks: [4, 5, 6]
     ships: "Every export built by the worker, stored, and emailed as a link"
     status: in-review
-    pull: "#18"
+    pull: "foodie-club-app#18"
   - number: 3
     branch: export-screen/03-history-and-limits
     tasks: [7, 8]
