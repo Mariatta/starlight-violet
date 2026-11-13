@@ -40,9 +40,12 @@ import { folderQuestions, folderRows, sectionUrl, siblingPages, type Sibling } f
 const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|#|\/)/i;
 const NUMBER = String.raw`\d+(?:\.\d+)*`;
 const LIST = String.raw`${NUMBER}(?:(?:,\s*|\s+and\s+|,\s*and\s+|\s+to\s+)${NUMBER})*`;
-const TASKS = new RegExp(String.raw`\b(Tasks?)(\s+)(${LIST})\b`, 'gi');
-const STAGES = new RegExp(String.raw`\b(Stages?)(\s+)(${LIST})\b`, 'gi');
-const QUESTIONS = /\bQ\d+\b/g;
+/** "this stage 2 people" counts; "stage 2" after one of these words is not a reference. */
+const NOT_AFTER = String.raw`(?<!\b(?:this|that|these|those|each|every|any|which|what|one|same|next|last|early|later|final|current)\s)`;
+const TASKS = new RegExp(String.raw`${NOT_AFTER}\b(Tasks?)(\s+)(${LIST})\b`, 'gi');
+const STAGES = new RegExp(String.raw`${NOT_AFTER}\b(Stages?)(\s+)(${LIST})\b`, 'gi');
+/** "Q3", but not a quarter: "Q1 2027", "2027 Q1". */
+const QUESTIONS = /(?<!\b(?:19|20)\d\d\s?)\bQ\d+\b(?!\s?(?:19|20)\d\d\b)/g;
 /** A section number: "6", "6.4", "1a". */
 const SECTION = String.raw`\d+[a-z]?(?:\.\d+)*`;
 /** What may follow a page's name: "§6", "section 7", "principle 2", "3.2". */
@@ -113,16 +116,23 @@ function pageRefs(value: string, pages: Map<string, Sibling>): Match[] {
   if (pages.size === 0) return [];
   const names = [...pages.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[-]/g, '\\$&'));
   const matches: Match[] = [];
-  for (const m of value.matchAll(new RegExp(String.raw`\b(${names.join('|')})(\.md)?\b`, 'g'))) {
+  // Not part of a path ("finance/PLAN.md") or a longer name ("SPEC-v2").
+  for (const m of value.matchAll(new RegExp(String.raw`(?<![\w/.-])(${names.join('|')})(\.md)?(?![\w-])`, 'g'))) {
     const page = pages.get(m[1])!;
     let end = m.index! + m[0].length;
     const section = PAGE_SECTION.exec(value.slice(end));
     let url = page.url;
     if (section) {
       const number = section[1] ?? section[2] ?? section[4];
-      url = sectionUrl(page, { number, principle: Boolean(section[3]) }) ?? page.url;
-      end += section[0].length;
+      const found = sectionUrl(page, { number, principle: Boolean(section[3]) });
+      // A bare "3.2" counts only when the page has that section: "PLAN 2.5 days" is not one.
+      if (found || !section[4]) {
+        url = found ?? page.url;
+        end += section[0].length;
+      }
     }
+    // A short name ("UI", "API") is a common word; it links as "UI.md" or with a section.
+    if (m[1].length < 4 && !m[2] && end === m.index! + m[0].length) continue;
     const nodes: PhrasingContent[] = [link(value.slice(m.index!, end), url)];
     for (let more = MORE_SECTIONS.exec(value.slice(end)); more; more = MORE_SECTIONS.exec(value.slice(end))) {
       const target = sectionUrl(page, { number: more[3] });
@@ -237,7 +247,7 @@ export function notesLinksPlugin(): MdastPluginEntry {
           ctx.setProperty(node, 'value', value);
         }
         if (!hasTargets(targets)) return;
-        if (parent && (parent.type === 'link' || parent.type === 'heading')) return;
+        for (let up = parent; up; up = ctx.parent(up as never)) if (up.type === 'link' || up.type === 'heading') return;
         const nodes = autolink(value, targets);
         if (nodes) ctx.replaceNode(node, nodes);
       },

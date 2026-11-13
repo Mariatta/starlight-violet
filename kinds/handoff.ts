@@ -55,12 +55,27 @@ export const handoffSchema = z.object({
   source: z.string().optional(),
 });
 
-/** Render the inline-Markdown fields to HTML in place, so their references link as the body's do. */
+/**
+ * `<` outside code spans as text, so a placeholder such as `<id>` shows
+ * rather than becoming a tag; an autolink (`<https://...>`) stays a link.
+ */
+export function escapeTags(text: string): string {
+  return text
+    .split(/(`+[^`]*`+)/)
+    .map((part, index) => (index % 2 ? part : part.replace(/<(?![a-z][a-z0-9+.-]*:[^\s>]*>)/gi, '&lt;')))
+    .join('');
+}
+
+/**
+ * Render the inline-Markdown fields to HTML in place, so their references
+ * link as the body's do. `blocks`, `answer` and `next_steps` were plain text
+ * before they were Markdown, so raw HTML in them stays text.
+ */
 export async function renderHandoff(data: z.infer<typeof handoffSchema>, inline: (text: string) => Promise<string>) {
   for (const question of data.open_questions) {
     question.question = await inline(question.question);
-    if (question.blocks) question.blocks = await inline(question.blocks);
-    if (question.answer) question.answer = await inline(question.answer);
+    if (question.blocks) question.blocks = await inline(escapeTags(question.blocks));
+    if (question.answer) question.answer = await inline(escapeTags(question.answer));
   }
-  data.next_steps = await Promise.all(data.next_steps.map(inline));
+  data.next_steps = await Promise.all(data.next_steps.map((step) => inline(escapeTags(step))));
 }
