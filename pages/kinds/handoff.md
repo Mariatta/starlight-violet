@@ -28,6 +28,11 @@ The Markdown fields link as the body does: "Q3", "SPEC 3.2", "PLAN.md §6",
 anchor of its id (`#q3`), so any page in the handoff's folder can link to it
 by writing "Q3".
 
+`blocks`, `answer` and `next_steps` were plain text before they were
+Markdown, so a `<` in them still shows as written: a placeholder such as
+&lt;id&gt; stays text rather than becoming an HTML tag. `question` takes raw HTML, as the body
+does.
+
 ## Sections
 
 The body has exactly these level-two headings, in this order. Nothing else

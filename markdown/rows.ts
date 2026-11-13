@@ -4,10 +4,14 @@
  * each row numbered `1` or `1.2` the id `task-1-2`, `stage-1` and so on, so
  * "task 1.2" and "Stage 1" in the folder can link to the row (see links.ts).
  * It runs on the HTML tree because Sätteri drops `data.hProperties` on mdast
- * table rows and cells.
+ * table rows and cells. A row whose anchor a heading of the page already has
+ * gets none, so the page keeps one element per id.
  */
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type { HastPluginEntry } from 'satteri';
-import { isRowLabel, rowId, rowKind } from '../lib/references';
+import { readPage } from '../lib/notes';
+import { headingSlugs, isRowLabel, rowId, rowKind } from '../lib/references';
 
 interface Element {
   type: string;
@@ -26,8 +30,9 @@ function child(node: Element | undefined, tag: string): Element | undefined {
 }
 
 export function rowAnchorsPlugin(): HastPluginEntry {
-  return () => {
-    const used = new Set<string>();
+  return ({ fileURL }: { fileURL?: URL }) => {
+    const file = fileURL ? fileURLToPath(fileURL) : undefined;
+    const used = file && existsSync(file) ? headingSlugs(readPage(file).body) : new Set<string>();
     return {
       name: 'violet-row-anchors',
       element: {

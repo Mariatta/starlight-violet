@@ -51,5 +51,5 @@ const decisionUrls = new Map(readDecisions().map((d) => [d.number, d.url]));
   )}
 
   <h2 id="next-steps">Next steps</h2>
-  <ol class="sl-steps" role="list">{data.next_steps.map((s) => <li set:html={s} />)}</ol>
+  <ol class="sl-steps" role="list">{data.next_steps.map((s) => <li><p set:html={s} /></li>)}</ol>
 </div>
