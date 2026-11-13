@@ -4,14 +4,14 @@ number: "0002"
 title: "0002. Stream exports in the request"
 status: superseded
 proposed: 2026-10-22
-date: 2026-10-23
+date: 2026-10-27
 superseded_by:
   - decision: "0003"
 reason: "The simplest thing that could work, before the spike."
 history:
-  - date: 2026-10-23
+  - date: 2026-10-27
     note: "Locked: RSVPs and venues finish well inside the limit."
-  - date: 2026-10-24
+  - date: 2026-10-27
     note: "Superseded by decision 0003 after the photos spike was cut off at 30 seconds."
 ---
 

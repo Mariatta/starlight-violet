@@ -28,5 +28,5 @@ the event's date and slug, such as `2026-07-28-pierogi-night/`.
 
 - One writer per export type, not one per type and format.
 - Excel on Windows needs the UTF-8 byte order mark to show names such as
-  "Marisol" with accents intact; the CSV writers add it.
+  "Zoë" with accents intact; the CSV writers add it.
 - A request for another format is a new decision, not a quick change.

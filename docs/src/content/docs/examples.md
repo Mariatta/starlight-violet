@@ -29,9 +29,9 @@ each other the way real notes do.
 | Steps in a runbook, and in a plan's task | [Architecture](../reference/architecture/#re-running-a-failed-export), and Task 5 on the plan's [PR 2](../planning/export-screen/plan/pr-2/) |
 | A kind the site defines itself | The [risk](../risks/export-timeouts/), with its own header |
 
-Issue numbers such as #12 link to this repository's issues, as Violet's
-`github` option sets them; in a real project they would be that project's
-issues.
+The issues, such as `foodie-club-app#12`, are written as another
+repository's, so they link to a repository that does not exist rather
+than to this one's real issues.
 
 The source of every page is in the
 [repository](https://github.com/mariatta/starlight-violet/tree/main/docs/examples).

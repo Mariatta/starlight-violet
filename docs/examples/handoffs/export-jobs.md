@@ -18,8 +18,8 @@ open_questions:
     owner: Sofia Bianchi
     answer: Seven days, then the file is deleted. Long enough to cover a weekend, short enough for RSVPs and photos of people.
   - id: Q2
-    question: Can **session hosts** export the RSVPs for their own night, or only organizers?
-    blocks: PR 3
+    question: Can **welcome hosts** export the RSVPs for the night they host, or only organizers?
+    blocks: A task in PR 3, if the answer is yes
     owner: Sofia Bianchi
   - id: Q3
     question: How many exports may one organizer start in an hour?
@@ -65,7 +65,8 @@ to `exports/` and read `photos/`. Signed links work from the staging site.
 
 ## What is open
 
-Q2 goes to Sofia and Q3 to Marcus on #12; neither blocks PR 2. Q4 blocks
+Q2 goes to Sofia and Q3 to Marcus; neither blocks PR 2. A yes to Q2 adds
+a task to PR 3 for a host-only view of the screen. Q4 blocks
 only the notice in Task 6: build the email and leave the notice out until
 it is answered. Answers go into this page's front matter.
 

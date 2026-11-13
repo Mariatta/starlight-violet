@@ -1,11 +1,11 @@
 ---
 kind: reference
-status: current
+status: in-progress
 created: 2026-10-20
 updated: 2026-11-12
-note: "Describes the club app with PR 2 of the export screen merged."
+note: "Describes the club app as it will be once PR 2 of the export screen merges."
 issues:
-  - ref: "#12"
+  - ref: "foodie-club-app#12"
     title: "Export screen for organizers"
 related:
   - title: "Export screen plan"
@@ -19,7 +19,7 @@ related:
 
 The Lucky Town Foodie Club app is a Django app with a Celery worker. This
 page covers the parts the export screen touches; as decision 0003 says,
-exports never run in the request.
+once PR 2 merges, exports never run in the request.
 
 ![How an export runs: the organizer starts it, the web app queues it, the worker reads Postgres and the photos, uploads to S3, and the organizer gets an email with a link](images/architecture.svg)
 
@@ -29,7 +29,7 @@ exports never run in the request.
 |---|---|---|
 | Web app | Django, one process | The export screen and the `Export` rows |
 | Job queue | Redis | Queues `default` (event reminders) and `exports` |
-| Export worker | Celery, `-Q exports` | Nothing; writes to a temporary file |
+| Worker | Celery, one process on `-Q default,exports` | Nothing; writes exports to a temporary file |
 | Postgres | Managed database | Members, events, RSVPs, venues |
 | Storage | S3, private bucket | `photos/` from every event, and `exports/<id>.csv` or `.zip`, deleted after seven days ([Q1](handoffs/export-jobs.md#q1)) |
 
@@ -65,7 +65,7 @@ exports never run in the request.
    ```
 
 4. Watch it finish on the export screen, or with
-   `celery -A foodieclub inspect active -d exports@%h`.
+   `celery -A foodieclub inspect active`.
 :::
 
 ## Pages
