@@ -10,7 +10,8 @@ import { HANDOFF_SECTIONS, handoffSchema, renderHandoff, STATUS_VARIANT as HANDO
 import { planningSchema, PLANNING_VARIANT, renderPlanning, WORK_VARIANT } from './planning';
 import { referenceSchema, REFERENCE_VARIANT, renderReference } from './reference';
 
-type Inline = (text: string) => Promise<string>;
+/** Render inline Markdown; `{ html: false }` shows raw HTML in it as text. */
+type Inline = (text: string, options?: { html?: boolean }) => Promise<string>;
 export type { BadgeVariant };
 
 export interface Kind {
