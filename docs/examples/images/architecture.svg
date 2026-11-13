@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="14">
+  <title>How an export runs in the Lucky Town Foodie Club app</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#4b4560"/>
+    </marker>
+  </defs>
+  <rect width="760" height="300" rx="12" fill="#f7f5fb"/>
+
+  <g fill="#ffffff" stroke="#7c5cc4" stroke-width="2">
+    <rect x="30" y="40" width="130" height="64" rx="8"/>
+    <rect x="230" y="40" width="150" height="64" rx="8"/>
+    <rect x="450" y="40" width="130" height="64" rx="8"/>
+    <rect x="230" y="190" width="150" height="64" rx="8"/>
+    <rect x="450" y="190" width="130" height="64" rx="8"/>
+    <rect x="620" y="115" width="115" height="64" rx="8"/>
+  </g>
+
+  <g fill="#231d33" text-anchor="middle">
+    <text x="95" y="68" font-weight="600">Organizer</text>
+    <text x="95" y="88" font-size="12" fill="#5d5670">browser</text>
+    <text x="305" y="68" font-weight="600">Web app</text>
+    <text x="305" y="88" font-size="12" fill="#5d5670">Django, export screen</text>
+    <text x="515" y="68" font-weight="600">Job queue</text>
+    <text x="515" y="88" font-size="12" fill="#5d5670">Redis</text>
+    <text x="305" y="218" font-weight="600">Postgres</text>
+    <text x="305" y="238" font-size="12" fill="#5d5670">events, RSVPs, venues</text>
+    <text x="515" y="218" font-weight="600">Export worker</text>
+    <text x="515" y="238" font-size="12" fill="#5d5670">Celery</text>
+    <text x="677" y="143" font-weight="600">Storage</text>
+    <text x="677" y="163" font-size="12" fill="#5d5670">S3, photos, exports</text>
+  </g>
+
+  <g stroke="#4b4560" stroke-width="1.5" fill="none" marker-end="url(#arrow)">
+    <path d="M160 72 H228"/>
+    <path d="M380 72 H448"/>
+    <path d="M515 104 V188"/>
+    <path d="M450 222 H382"/>
+    <path d="M580 210 L640 181"/>
+    <path d="M677 113 V24 H95 V38"/>
+  </g>
+
+  <g fill="#4b4560" font-size="12">
+    <text x="166" y="62">1. start</text>
+    <text x="388" y="62">2. enqueue</text>
+    <text x="522" y="150">3. pick up</text>
+    <text x="384" y="242">4. read rows</text>
+    <text x="602" y="214">5. upload</text>
+    <text x="300" y="17">6. email a link that expires in seven days</text>
+  </g>
+</svg>
