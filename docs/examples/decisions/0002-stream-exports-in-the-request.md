@@ -9,7 +9,7 @@ superseded_by:
   - decision: "0003"
 reason: "The simplest thing that could work, before the spike."
 history:
-  - date: 2026-10-27
+  - date: 2026-10-23
     note: "Locked: RSVPs and venues finish well inside the limit."
   - date: 2026-10-27
     note: "Superseded by decision 0003 after the photos spike was cut off at 30 seconds."
