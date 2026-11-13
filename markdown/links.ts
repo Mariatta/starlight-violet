@@ -214,40 +214,33 @@ function autolink(value: string, targets: Targets): PhrasingContent[] | undefine
 }
 
 /**
- * The stretches of a document's source that a raw <a> holds, read in
- * document order as a browser reads tags: an <a> opens (closing any open
- * one), a </a> closes, a stray </a> does nothing, and a tag inside a
- * comment is not one. An anchor left open holds everything after it, since
- * browsers reopen it in later blocks.
+ * Mark each text a raw <a> holds, reading the page in document order as a
+ * browser reads tags: an <a> opens (closing any open one), a </a> closes,
+ * a stray </a> does nothing, and a tag inside a comment is not one. An
+ * anchor left open holds everything after it, since browsers reopen it in
+ * later blocks. The mark is on the node, so text another plugin made (a
+ * step's title, a shortcode's table) is placed like any other.
  */
-function rawAnchorSpans(root: any): [number, number][] {
-  const spans: [number, number][] = [];
-  let openedAt: number | undefined;
-  // How far into the source the walk has read: where a node another plugin
-  // made, with no position (a shortcode's HTML), sits.
-  let read = 0;
+function markAnchoredText(root: any, mark: (node: any) => void): void {
+  let open = false;
   const walk = (node: any) => {
-    read = Math.max(read, node.position?.start.offset ?? read);
     if (node.type === 'html') {
-      const here = node.position?.end.offset ?? read;
       const tags = node.value.replace(/<!--[\s\S]*?-->/g, '');
-      for (const [tag] of tags.matchAll(/<a[\s>]|<\/a\s*>/gi)) {
-        if (openedAt !== undefined) spans.push([openedAt, here]);
-        openedAt = tag.startsWith('</') ? undefined : here;
-      }
+      for (const [tag] of tags.matchAll(/<a[\s>]|<\/a\s*>/gi)) open = !tag.startsWith('</');
+    } else if (node.type === 'text') {
+      if (open) mark(node);
     } else for (const child of node.children ?? []) walk(child);
-    read = Math.max(read, node.position?.end.offset ?? read);
   };
   walk(root);
-  if (openedAt !== undefined) spans.push([openedAt, Infinity]);
-  return spans;
 }
+
+/** The data key marking a text inside a raw <a>. */
+const IN_ANCHOR = 'violetInRawAnchor';
 
 export function notesLinksPlugin(): MdastPluginEntry {
   return ({ fileURL, source }) => {
-    // Only a page with a raw <a> needs positions and a pass over its tags.
+    // Only a page with a raw <a> needs a pass over its tags.
     const rawAnchors = /<a[\s>]/i.test(source);
-    let anchored: [number, number][] = [];
     const file = fileURL ? fileURLToPath(fileURL) : undefined;
     const dir = file && file.startsWith(notesDir()) ? dirname(file) : undefined;
     const plans = new Map<string, Plan | undefined>();
@@ -267,9 +260,8 @@ export function notesLinksPlugin(): MdastPluginEntry {
     return {
       name: 'notes-links',
       ...(rawAnchors && {
-        options: { position: true },
-        before(root: any) {
-          anchored = rawAnchorSpans(root);
+        before(root: any, ctx: any) {
+          markAnchoredText(root, (node) => ctx.setProperty(node, 'data', { ...node.data, [IN_ANCHOR]: true }));
         },
       }),
       link(node, ctx) {
@@ -309,16 +301,11 @@ export function notesLinksPlugin(): MdastPluginEntry {
           if (!value) return ctx.removeNode(node);
           ctx.setProperty(node, 'value', value);
         }
-        // Not inside a link, Markdown or raw HTML, nor a heading. Text another
-        // plugin made (a step's title) has no position; its nearest ancestor's
-        // below the root stands in, and when none has one on a page with raw
-        // anchors, where it sits is unknown, so it is left as text.
-        let at: number | undefined = (node as any).position?.start.offset;
+        // Not inside a link, Markdown or raw HTML, nor a heading.
+        if ((node as any).data?.[IN_ANCHOR]) return;
         for (let up: any = parent; up; up = ctx.parent(up as never)) {
           if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
-          if (up.type !== 'root') at ??= up.position?.start.offset;
         }
-        if (anchored.length > 0 && (at === undefined || anchored.some(([from, to]) => at >= from && at < to))) return;
         const nodes = autolink(value, targets);
         if (nodes) ctx.replaceNode(node, nodes);
       },
