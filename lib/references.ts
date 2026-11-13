@@ -7,8 +7,8 @@
  */
 import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
-import { idFor, notesDir, pageUrl, readPage, splitTitle, type Page } from './notes';
-import { anchorUrl, headings, isSplit, pageParts } from './plans';
+import { idFor, isSkipped, LANDING, notesDir, notesRel, pageUrl, readPage, splitTitle, type Page } from './notes';
+import { anchorUrl, headings, isSplit, pageParts, planFor } from './plans';
 import { cached, fencedLines } from './source';
 
 /** A table whose first header cell is one of these numbers its rows: `#` rows are tasks. */
@@ -37,15 +37,29 @@ export function isRowLabel(cell: string): boolean {
 }
 
 function cells(line: string): string[] {
-  return line.trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim());
+  return line.trim().replace(/^\||\|$/g, '').split('|').map(cellText);
 }
 
 function page(file: string): Page {
   return cached(file, 'page', () => readPage(file));
 }
 
+/** The Markdown pages of a folder that the site builds: not skipped, not the landing page. */
 function markdownFiles(dir: string): string[] {
-  return cached(dir, 'dir', () => (existsSync(dir) ? readdirSync(dir).filter((n) => extname(n) === '.md').sort().map((n) => join(dir, n)) : []));
+  return cached(dir, 'dir', () =>
+    existsSync(dir)
+      ? readdirSync(dir)
+          .filter((n) => extname(n) === '.md')
+          .sort()
+          .map((n) => join(dir, n))
+          .filter((f) => f.startsWith(notesDir()) && !isSkipped(notesRel(f)) && notesRel(f) !== LANDING)
+      : [],
+  );
+}
+
+/** A table cell as its text reads: `**#**` is `#`, `` `1` `` is `1`, as rows.ts sees them rendered. */
+function cellText(cell: string): string {
+  return cell.replace(/\\(.)/g, '$1').replace(/[*_`]/g, '').trim();
 }
 
 /**
@@ -86,20 +100,35 @@ function renderedBodies(file: string): { url: string; body: string }[] {
 }
 
 /**
+ * A page's numbered table rows as it renders: for each row its kind, label
+ * and the address of its anchor. A row whose anchor a heading of the page
+ * already has gets no id of its own (see rows.ts) and is reached at that
+ * heading instead. Worked out once per file, for rows.ts and the links.
+ */
+function pageRows(file: string): { kind: string; label: string; id: string; url: string; own: boolean }[] {
+  return cached(file, 'rows', () => {
+    const taken = renderedAnchors(file);
+    const rows: { kind: string; label: string; id: string; url: string; own: boolean }[] = [];
+    for (const part of renderedBodies(file)) {
+      for (const [kind, labels] of tableRows(part.body)) {
+        for (const [label, id] of labels) {
+          const own = !taken.has(id);
+          rows.push({ kind, label, id, own, url: own ? `${part.url}#${id}` : (anchorUrl(file, id) ?? `${part.url}#${id}`) });
+        }
+      }
+    }
+    return rows;
+  });
+}
+
+/**
  * The row anchors a page may carry: those its source gives, less those a
  * heading already has. rows.ts gives a rendered row an id only when it is
  * here, so a link worked out from the source never points at an id the
  * page lacks.
  */
 export function rowAnchors(file: string): Set<string> {
-  return cached(file, 'row-anchors', () => {
-    const taken = renderedAnchors(file);
-    const ids = new Set<string>();
-    for (const { body } of renderedBodies(file)) {
-      for (const rows of tableRows(body).values()) for (const id of rows.values()) if (!taken.has(id)) ids.add(id);
-    }
-    return ids;
-  });
+  return new Set(pageRows(file).filter((row) => row.own).map((row) => row.id));
 }
 
 export interface Sibling {
@@ -150,7 +179,8 @@ export function folderQuestions(file: string): Map<string, string> {
     if (data.kind !== 'handoff' || !Array.isArray(data.open_questions)) continue;
     const url = pageUrl(idFor(target, notesDir()));
     for (const question of data.open_questions as { id?: unknown }[]) {
-      const id = String(question?.id ?? '');
+      // Ids are matched in any case: prose may write "q3" for Q3.
+      const id = String(question?.id ?? '').toUpperCase();
       if (!id) continue;
       const anchor = `${url}#${id.toLowerCase()}`;
       if (target === file) own.set(id, anchor);
@@ -164,35 +194,28 @@ export function folderQuestions(file: string): Map<string, string> {
 }
 
 /**
- * The plan in a page's folder (PLAN.md, else a planning page of type plan),
- * and its numbered rows by kind, each on the part of a split plan that
- * holds its table. A row whose anchor a heading of the plan already has
- * gets no id of its own (see rows.ts), so a reference to it lands on that
- * heading.
+ * The plan of a page's folder, the same one the task links use: the plan
+ * `planFor` finds (the page itself, or the folder's page declaring tasks or
+ * PRs), else PLAN.md, else a planning page of type plan.
  */
+export function folderPlan(file: string): string | undefined {
+  const declared = planFor(file)?.file;
+  if (declared) return declared;
+  const plan = siblingPages(file).get('PLAN');
+  if (plan) return plan.file;
+  return markdownFiles(dirname(file)).find((f) => page(f).data.type === 'plan');
+}
+
+/** The numbered rows of the folder's plan, by kind and label, each to its anchor. */
 export function folderRows(file: string): Map<string, Map<string, string>> {
-  let plan = siblingPages(file).get('PLAN');
-  if (!plan) {
-    const target = markdownFiles(dirname(file)).find((f) => page(f).data.type === 'plan');
-    if (target) plan = { file: target, url: pageUrl(idFor(target, notesDir())) };
+  const plan = folderPlan(file);
+  const out = new Map<string, Map<string, string>>();
+  if (!plan) return out;
+  for (const { kind, label, url } of pageRows(plan)) {
+    if (!out.has(kind)) out.set(kind, new Map());
+    if (!out.get(kind)!.has(label)) out.get(kind)!.set(label, url);
   }
-  if (!plan) return new Map();
-  const planFile = plan.file;
-  return cached(planFile, 'rows', () => {
-    const taken = renderedAnchors(planFile);
-    const out = new Map<string, Map<string, string>>();
-    for (const part of renderedBodies(planFile)) {
-      for (const [kind, rows] of tableRows(part.body)) {
-        if (!out.has(kind)) out.set(kind, new Map());
-        for (const [label, id] of rows) {
-          // A heading with the row's anchor keeps it, wherever that heading is.
-          const target = taken.has(id) ? at(plan!, id) : `${part.url}#${id}`;
-          if (!out.get(kind)!.has(label)) out.get(kind)!.set(label, target);
-        }
-      }
-    }
-    return out;
-  });
+  return out;
 }
 
 /**

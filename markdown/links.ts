@@ -42,14 +42,16 @@ const NUMBER = String.raw`\d+(?:\.\d+)*`;
 const LIST = String.raw`${NUMBER}(?:(?:,\s*|\s+and\s+|,\s*and\s+|\s+to\s+)${NUMBER})*`;
 /** "this stage 2 people" counts; "stage 2" after one of these words is not a reference. */
 const NOT_AFTER = String.raw`(?<!\b(?:this|that|these|those|each|every|any|which|what)\s)`;
-const TASKS = new RegExp(String.raw`${NOT_AFTER}\b(Tasks?)(\s+)(${LIST})\b`, 'gi');
-const STAGES = new RegExp(String.raw`${NOT_AFTER}\b(Stages?)(\s+)(${LIST})\b`, 'gi');
+/** A count or a length of time after a number: "the task 3 times", "stage 2 days later", "2.5 days". */
+const UNIT = String.raw`(?!\.\d)(?!\s*(?:%|x\b|h\b|times?\b|days?\b|hours?\b|weeks?\b|months?\b|years?\b|minutes?\b|mins?\b|people\b|points?\b|pts?\b))`;
+const TASKS = new RegExp(String.raw`${NOT_AFTER}\b(Tasks?)(\s+)(${LIST})\b${UNIT}`, 'gi');
+const STAGES = new RegExp(String.raw`${NOT_AFTER}\b(Stages?)(\s+)(${LIST})\b${UNIT}`, 'gi');
 /** "Q3", but not a quarter: "Q1 2027", "2027 Q1", "FY2027 Q1", "Q1 FY27", "Q1 FY2027". */
-const QUESTIONS = /(?<!(?:(?:19|20)\d\d|FY\s?\d\d)\s?)\bQ\d+\b(?!\s?(?:FY\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)/g;
+const QUESTIONS = /(?<!(?:(?:19|20)\d\d|FY\s?\d\d)\s?)\bQ\d+\b(?!\s?(?:FY\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)/gi;
 /** A section number: "6", "6.4", "1a". */
 const SECTION = String.raw`\d+[a-z]?(?:\.\d+)*`;
 /** What may follow a page's name: "§6", "section 7", "principle 2", "3.2". */
-const PAGE_SECTION = new RegExp(String.raw`^\s+(?:§\s?(${SECTION})|sections?\s+(${SECTION})|(principles?)\s+\d+\b|(\d+[a-z]|\d+(?:\.\d+)+)\b(?!\s*(?:%|x\b|h\b|days?|hours?|weeks?|months?|years?|minutes?|mins?|points?|pts?|times)))`, 'i');
+const PAGE_SECTION = new RegExp(String.raw`^\s+(?:§\s?(${SECTION})|sections?\s+(${SECTION})|(principles?)\s+\d+\b|(\d+[a-z]|\d+(?:\.\d+)+)\b${UNIT})`, 'i');
 /** A further section of the same page: ", §6.4", " and §2". */
 const MORE_SECTIONS = new RegExp(String.raw`^(,\s*|\s+and\s+|\s+or\s+)(§\s?(${SECTION}))(?!\w|\.\d)(?!\s+(?:of|in|from)\b)`);
 const DECISIONS = /\b(decisions?)(\s+)(\d{4}(?:(?:,\s*|\s+and\s+|,\s*and\s+)\d{4})*)/gi;
@@ -116,14 +118,29 @@ function numbered(match: RegExpMatchArray, urls: Map<string, string>): Match | u
   return linked ? { start: match.index!, end: match.index! + match[0].length, nodes } : undefined;
 }
 
+const namePatterns = new Map<string, RegExp>();
+
+/**
+ * The pattern for a folder's page names, built once per set of names. Not
+ * part of a path ("finance/PLAN.md", though "./PLAN.md" is this folder) or
+ * a longer name ("SPEC-v2", "PLAN.mdx").
+ */
+function pageNamePattern(names: string[]): RegExp {
+  const key = names.sort((a, b) => b.length - a.length || a.localeCompare(b)).join('|');
+  let pattern = namePatterns.get(key);
+  if (!pattern) {
+    const escaped = names.map((n) => n.replace(/[-]/g, '\\$&')).join('|');
+    pattern = new RegExp(String.raw`(?:(?<![\w/.-])\.\/|(?<![\w/.-]))(${escaped})(\.md)?(?![\w-]|\.\w)`, 'g');
+    namePatterns.set(key, pattern);
+  }
+  return pattern;
+}
+
 /** "SPEC", "PLAN.md §6 and §6.4", "SPEC principle 2": the page, and each section it names. */
 function pageRefs(value: string, pages: Map<string, Sibling>): Match[] {
   if (pages.size === 0) return [];
-  const names = [...pages.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[-]/g, '\\$&'));
   const matches: Match[] = [];
-  // Not part of a path ("finance/PLAN.md", though "./PLAN.md" is this folder) or a longer name ("SPEC-v2", "PLAN.mdx").
-  const pattern = String.raw`(?:(?<![\w/.-])\.\/|(?<![\w/.-]))(${names.join('|')})(\.md)?(?![\w-]|\.\w)`;
-  for (const m of value.matchAll(new RegExp(pattern, 'g'))) {
+  for (const m of value.matchAll(pageNamePattern([...pages.keys()]))) {
     const page = pages.get(m[1])!;
     let end = m.index! + m[0].length;
     const section = PAGE_SECTION.exec(value.slice(end));
@@ -154,8 +171,8 @@ function pageRefs(value: string, pages: Map<string, Sibling>): Match[] {
 function questionRefs(value: string, questions: Map<string, string>): Match[] {
   if (questions.size === 0) return [];
   return [...value.matchAll(QUESTIONS)]
-    .filter((m) => questions.has(m[0]))
-    .map((m) => ({ start: m.index!, end: m.index! + m[0].length, nodes: [link(m[0], questions.get(m[0])!)] }));
+    .filter((m) => questions.has(m[0].toUpperCase()))
+    .map((m) => ({ start: m.index!, end: m.index! + m[0].length, nodes: [link(m[0], questions.get(m[0].toUpperCase())!)] }));
 }
 
 /**

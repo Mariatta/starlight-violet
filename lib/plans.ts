@@ -114,16 +114,46 @@ interface Heading {
   slug: string;
 }
 
-/** The body's headings with the anchors the renderer gives them; fenced code is skipped. */
+/** A line that starts a block of its own, so it cannot be a setext heading's text. */
+const NOT_SETEXT_TEXT = /^(?: {4}|\s*(?:[-+*]\s|\d{1,9}[.)]\s|>|\||#{1,6}(?:\s|$)|$))/;
+
+/**
+ * The body's headings with the anchors the renderer gives them, in order:
+ * `#` headings, and setext ones (a paragraph underlined with `===` or
+ * `---`). Fenced code is skipped.
+ */
 export function headings(body: string): Heading[] {
   const slugger = new Slugger();
   const found: Heading[] = [];
   const lines = body.split('\n');
   const code = fencedLines(lines);
+  // The block being read: a paragraph (its lines so far) or another block, until a blank line.
+  let paragraph: string[] | undefined;
+  let other = false;
   for (const [index, line] of lines.entries()) {
-    if (code[index]) continue;
-    const match = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
-    if (match) found.push({ depth: match[1].length, text: match[2], slug: slugger.slug(match[2]) });
+    if (code[index] || !line.trim()) {
+      paragraph = undefined;
+      other = false;
+      continue;
+    }
+    const match = /^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (match) {
+      // A # heading ends whatever block came before it.
+      found.push({ depth: match[1].length, text: match[2], slug: slugger.slug(match[2]) });
+      paragraph = undefined;
+      other = false;
+      continue;
+    }
+    const underline = /^ {0,3}(=+|-+)\s*$/.exec(line);
+    if (underline && paragraph) {
+      const text = paragraph.join(' ').trim();
+      found.push({ depth: underline[1][0] === '=' ? 1 : 2, text, slug: slugger.slug(text) });
+      paragraph = undefined;
+      continue;
+    }
+    if (paragraph) paragraph.push(line);
+    else if (!other && NOT_SETEXT_TEXT.test(line)) other = true;
+    else if (!other) paragraph = [line];
   }
   return found;
 }
