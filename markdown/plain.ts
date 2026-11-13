@@ -12,11 +12,11 @@ export const PLAIN_HTML = 'violet-plain-html';
 
 export function plainHtmlPlugin(): MdastPluginEntry {
   return ({ fileURL }) => {
-    if (fileURL?.hash !== `#${PLAIN_HTML}`) return { name: 'violet-plain-html' };
+    const plain = fileURL?.hash === `#${PLAIN_HTML}`;
     return {
       name: 'violet-plain-html',
       html(node, ctx) {
-        ctx.replaceNode(node, { type: 'text', value: node.value });
+        if (plain) ctx.replaceNode(node, { type: 'text', value: node.value });
       },
     };
   };
