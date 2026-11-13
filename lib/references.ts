@@ -5,10 +5,11 @@
  * ("task 1.2", "Stage 1"). Each lookup returns the address to link to, or
  * nothing when the folder has no such thing, so unmatched prose stays text.
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { idFor, notesDir, pageUrl, readPage, splitTitle, type Page } from './notes';
 import { anchorUrl, headings, isSplit, pageParts } from './plans';
+import { cached, fencedLines } from './source';
 
 /** A table whose first header cell is one of these numbers its rows: `#` rows are tasks. */
 const ROW_KINDS: Record<string, 'task' | 'stage' | 'step' | 'phase'> = {
@@ -19,7 +20,6 @@ const ROW_KINDS: Record<string, 'task' | 'stage' | 'step' | 'phase'> = {
   phase: 'phase',
 };
 const ROW_LABEL = /^\d+(?:\.\d+)*$/;
-const FENCE = /^\s*(```|~~~)/;
 
 /** The anchor a numbered table row gets: `task-1-2`, `stage-1`. */
 export function rowId(kind: string, label: string): string {
@@ -40,21 +40,6 @@ function cells(line: string): string[] {
   return line.trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim());
 }
 
-/**
- * A file's value, worked out again only when the file changes: each page
- * renders many fragments (the body, every handoff field), and each asks
- * about the same few files.
- */
-const memo = new Map<string, { mtime: number; value: unknown }>();
-function cached<T>(file: string, key: string, compute: () => T): T {
-  const mtime = existsSync(file) ? statSync(file).mtimeMs : -1;
-  const hit = memo.get(`${key}:${file}`);
-  if (hit && hit.mtime === mtime) return hit.value as T;
-  const value = compute();
-  memo.set(`${key}:${file}`, { mtime, value });
-  return value;
-}
-
 function page(file: string): Page {
   return cached(file, 'page', () => readPage(file));
 }
@@ -63,35 +48,58 @@ function markdownFiles(dir: string): string[] {
   return cached(dir, 'dir', () => (existsSync(dir) ? readdirSync(dir).filter((n) => extname(n) === '.md').sort().map((n) => join(dir, n)) : []));
 }
 
-/** The numbered rows of a body's tables, by kind and label. */
+/**
+ * The numbered rows of a body's tables, by kind and label. Fenced code is
+ * skipped as the renderer skips it (see source.ts), and so is a line
+ * indented four spaces, which is code too.
+ */
 export function tableRows(body: string): Map<string, Map<string, string>> {
   const rows = new Map<string, Map<string, string>>();
   const lines = body.split('\n');
-  let fence: string | undefined;
+  const code = fencedLines(lines);
+  const delimiter = (line: string) => /^ {0,3}\|?\s*:?-{3,}/.test(line);
   let kind: string | undefined;
   lines.forEach((line, index) => {
-    const marker = FENCE.exec(line)?.[1];
-    if (marker) {
-      if (!fence) fence = marker;
-      else if (marker === fence) fence = undefined;
-      return;
-    }
-    if (fence || !line.trim().startsWith('|')) {
+    if (code[index] || /^ {4}/.test(line) || !line.trim().startsWith('|')) {
       kind = undefined;
       return;
     }
-    const next = lines[index + 1] ?? '';
-    if (/^\s*\|?\s*:?-{3,}/.test(next)) {
+    if (delimiter(lines[index + 1] ?? '') && !code[index + 1]) {
       kind = rowKind(cells(line)[0] ?? '');
       return;
     }
-    if (!kind || /^\s*\|?\s*:?-{3,}/.test(line)) return;
+    if (!kind || delimiter(line)) return;
     const label = cells(line)[0] ?? '';
     if (!isRowLabel(label)) return;
     if (!rows.has(kind)) rows.set(kind, new Map());
     if (!rows.get(kind)!.has(label)) rows.get(kind)!.set(label, rowId(kind, label));
   });
   return rows;
+}
+
+/** The bodies of a page as it renders: its parts when it is split, else the whole page. */
+function renderedBodies(file: string): { url: string; body: string }[] {
+  const { data, body } = page(file);
+  const rest = splitTitle(body).body;
+  const url = pageUrl(idFor(file, notesDir()));
+  return isSplit(data) && file.startsWith(notesDir()) ? pageParts(idFor(file, notesDir()), data, rest) : [{ url, body: rest }];
+}
+
+/**
+ * The row anchors a page may carry: those its source gives, less those a
+ * heading already has. rows.ts gives a rendered row an id only when it is
+ * here, so a link worked out from the source never points at an id the
+ * page lacks.
+ */
+export function rowAnchors(file: string): Set<string> {
+  return cached(file, 'row-anchors', () => {
+    const taken = renderedAnchors(file);
+    const ids = new Set<string>();
+    for (const { body } of renderedBodies(file)) {
+      for (const rows of tableRows(body).values()) for (const id of rows.values()) if (!taken.has(id)) ids.add(id);
+    }
+    return ids;
+  });
 }
 
 export interface Sibling {
@@ -124,7 +132,7 @@ export function sectionUrl(sibling: Sibling, ref: { number?: string; principle?:
   const found = cached(sibling.file, 'headings', () => headings(splitTitle(page(sibling.file).body).body)).find(({ text }) =>
     ref.principle
       ? /^(?:\d+[a-z]?\.?\s+)?principles\b/i.test(text)
-      : ref.number !== undefined && new RegExp(`^${ref.number.replace(/\./g, '\\.')}(?:[.:)]|\\s)`, 'i').test(text),
+      : ref.number !== undefined && new RegExp(`^${ref.number.replace(/\./g, '\\.')}(?:[.:)](?![0-9a-z])|\\s|$)`, 'i').test(text),
   );
   return found && at(sibling, found.slug);
 }
@@ -169,15 +177,11 @@ export function folderRows(file: string): Map<string, Map<string, string>> {
     if (target) plan = { file: target, url: pageUrl(idFor(target, notesDir())) };
   }
   if (!plan) return new Map();
-  const { file: planFile, url } = plan;
+  const planFile = plan.file;
   return cached(planFile, 'rows', () => {
-    const { data, body } = page(planFile);
-    const parts = isSplit(data)
-      ? pageParts(idFor(planFile, notesDir()), data, splitTitle(body).body)
-      : [{ url, body: splitTitle(body).body }];
     const taken = renderedAnchors(planFile);
     const out = new Map<string, Map<string, string>>();
-    for (const part of parts) {
+    for (const part of renderedBodies(planFile)) {
       for (const [kind, rows] of tableRows(part.body)) {
         if (!out.has(kind)) out.set(kind, new Map());
         for (const [label, id] of rows) {
@@ -197,12 +201,5 @@ export function folderRows(file: string): Map<string, Map<string, string>> {
  * page titles rather than headings.
  */
 export function renderedAnchors(file: string): Set<string> {
-  return cached(file, 'anchors', () => {
-    const { data, body } = page(file);
-    const rest = splitTitle(body).body;
-    // Only a notes page is split into parts; a site page is one page.
-    const split = isSplit(data) && file.startsWith(notesDir());
-    const anchors = split ? pageParts(idFor(file, notesDir()), data, rest).flatMap((part) => part.anchors) : headings(rest);
-    return new Set(anchors.map(({ slug }) => slug));
-  });
+  return cached(file, 'anchors', () => new Set(renderedBodies(file).flatMap(({ body }) => headings(body).map(({ slug }) => slug))));
 }

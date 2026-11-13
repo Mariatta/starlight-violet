@@ -44,14 +44,14 @@ const LIST = String.raw`${NUMBER}(?:(?:,\s*|\s+and\s+|,\s*and\s+|\s+to\s+)${NUMB
 const NOT_AFTER = String.raw`(?<!\b(?:this|that|these|those|each|every|any|which|what)\s)`;
 const TASKS = new RegExp(String.raw`${NOT_AFTER}\b(Tasks?)(\s+)(${LIST})\b`, 'gi');
 const STAGES = new RegExp(String.raw`${NOT_AFTER}\b(Stages?)(\s+)(${LIST})\b`, 'gi');
-/** "Q3", but not a quarter: "Q1 2027", "2027 Q1". */
-const QUESTIONS = /(?<!\b(?:19|20)\d\d\s?)\bQ\d+\b(?!\s?(?:19|20)\d\d\b)/g;
+/** "Q3", but not a quarter: "Q1 2027", "2027 Q1", "FY2027 Q1", "Q1 FY27". */
+const QUESTIONS = /(?<!(?:(?:19|20)\d\d|FY\s?\d\d)\s?)\bQ\d+\b(?!\s?(?:(?:19|20)\d\d|FY\s?\d\d)\b)/g;
 /** A section number: "6", "6.4", "1a". */
 const SECTION = String.raw`\d+[a-z]?(?:\.\d+)*`;
 /** What may follow a page's name: "§6", "section 7", "principle 2", "3.2". */
-const PAGE_SECTION = new RegExp(String.raw`^\s+(?:§\s?(${SECTION})|sections?\s+(${SECTION})|(principles?)\s+\d+\b|(\d+[a-z]|\d+(?:\.\d+)+)\b)`, 'i');
+const PAGE_SECTION = new RegExp(String.raw`^\s+(?:§\s?(${SECTION})|sections?\s+(${SECTION})|(principles?)\s+\d+\b|(\d+[a-z]|\d+(?:\.\d+)+)\b(?!\s*(?:%|x\b|h\b|days?|hours?|weeks?|months?|years?|minutes?|mins?|points?|pts?|times)))`, 'i');
 /** A further section of the same page: ", §6.4", " and §2". */
-const MORE_SECTIONS = new RegExp(String.raw`^(,\s*|\s+and\s+|\s+or\s+)(§\s?(${SECTION}))`);
+const MORE_SECTIONS = new RegExp(String.raw`^(,\s*|\s+and\s+|\s+or\s+)(§\s?(${SECTION}))(?!\s+(?:of|in|from)\b)`);
 const DECISIONS = /\b(decisions?)(\s+)(\d{4}(?:(?:,\s*|\s+and\s+|,\s*and\s+)\d{4})*)/gi;
 
 /** An attribute list, as in Python-Markdown, kramdown and Pandoc: `{ target=_blank .class #id }`. */
@@ -103,8 +103,13 @@ function numbered(match: RegExpMatchArray, urls: Map<string, string>): Match | u
   let linked = false;
   for (const part of match[3].split(new RegExp(`(${NUMBER})`)).filter(Boolean)) {
     const url = new RegExp(`^${NUMBER}$`).test(part) ? urls.get(part) : undefined;
+    // "Task 3.2" with no row 3.2 links its 3 to Task 3, as before rows had numbers.
+    const whole = !url && /^\d+\./.test(part) ? /^\d+/.exec(part)![0] : undefined;
     if (url) {
       nodes.push(link(part, url));
+      linked = true;
+    } else if (whole && urls.has(whole)) {
+      nodes.push(link(whole, urls.get(whole)!), text(part.slice(whole.length)));
       linked = true;
     } else nodes.push(text(part));
   }
@@ -153,25 +158,47 @@ function questionRefs(value: string, questions: Map<string, string>): Match[] {
     .map((m) => ({ start: m.index!, end: m.index! + m[0].length, nodes: [link(m[0], questions.get(m[0])!)] }));
 }
 
+/**
+ * What a page's prose can link to, each worked out the first time a text
+ * names one of its kind: most fragments (a handoff's step, a table cell)
+ * name none, so they read no files.
+ */
 interface Targets {
-  tasks: Map<string, string>;
-  decisions: Map<string, string>;
-  stages: Map<string, string>;
-  questions: Map<string, string>;
-  pages: Map<string, Sibling>;
+  tasks: () => Map<string, string>;
+  decisions: () => Map<string, string>;
+  stages: () => Map<string, string>;
+  questions: () => Map<string, string>;
+  pages: () => Map<string, Sibling>;
 }
 
-function hasTargets(t: Targets): boolean {
-  return t.tasks.size + t.decisions.size + t.stages.size + t.questions.size + t.pages.size > 0;
+function once<T>(compute: () => T): () => T {
+  let value: { v: T } | undefined;
+  return () => (value ??= { v: compute() }).v;
+}
+
+/** A capitalised word, which a page name such as SPEC or PLAN would be. */
+const CAPITALS = /\b[A-Z][A-Z0-9_-]+\b/;
+
+/** Whether a global pattern matches, leaving it ready to match from the start again. */
+function mentions(pattern: RegExp, value: string): boolean {
+  pattern.lastIndex = 0;
+  const found = pattern.test(value);
+  pattern.lastIndex = 0;
+  return found;
 }
 
 /** Split a text value into text and links; undefined when nothing links. */
-function autolink(value: string, { tasks, decisions, stages, questions, pages }: Targets): PhrasingContent[] | undefined {
+function autolink(value: string, targets: Targets): PhrasingContent[] | undefined {
   const matches: Match[] = [];
-  if (tasks.size > 0) for (const m of value.matchAll(TASKS)) matches.push(...[numbered(m, tasks)].filter((x) => x !== undefined));
-  if (stages.size > 0) for (const m of value.matchAll(STAGES)) matches.push(...[numbered(m, stages)].filter((x) => x !== undefined));
-  if (decisions.size > 0) for (const m of value.matchAll(DECISIONS)) matches.push(...[numbered(m, decisions)].filter((x) => x !== undefined));
-  matches.push(...questionRefs(value, questions), ...pageRefs(value, pages));
+  const each = (pattern: RegExp, urls: () => Map<string, string>) => {
+    if (!mentions(pattern, value) || urls().size === 0) return;
+    for (const m of value.matchAll(pattern)) matches.push(...[numbered(m, urls())].filter((x) => x !== undefined));
+  };
+  each(TASKS, targets.tasks);
+  each(STAGES, targets.stages);
+  each(DECISIONS, targets.decisions);
+  if (mentions(QUESTIONS, value)) matches.push(...questionRefs(value, targets.questions()));
+  if (CAPITALS.test(value)) matches.push(...pageRefs(value, targets.pages()));
   if (matches.length === 0) return;
   matches.sort((a, b) => a.start - b.start);
   const out: PhrasingContent[] = [];
@@ -196,17 +223,13 @@ export function notesLinksPlugin(): MdastPluginEntry {
       if (!plans.has(key)) plans.set(key, planFor(file, topic));
       return plans.get(key);
     };
-    const rows = dir ? folderRows(file!) : new Map<string, Map<string, string>>();
-    const tasks = new Map([...(rows.get('task') ?? []), ...(plan()?.tasks ?? []).map((t) => [String(t.number), t.url] as [string, string])]);
-    const decisions = getOptions().kinds.includes('decision')
-      ? new Map(readDecisions().map((d) => [d.number, d.url]))
-      : new Map<string, string>();
+    const rows = once(() => (dir ? folderRows(file!) : new Map<string, Map<string, string>>()));
     const targets: Targets = {
-      tasks,
-      decisions,
-      stages: rows.get('stage') ?? new Map(),
-      questions: dir ? folderQuestions(file!) : new Map(),
-      pages: dir ? siblingPages(file!) : new Map(),
+      tasks: once(() => new Map([...(rows().get('task') ?? []), ...(plan()?.tasks ?? []).map((t) => [String(t.number), t.url] as [string, string])])),
+      decisions: once(() => (getOptions().kinds.includes('decision') ? new Map(readDecisions().map((d) => [d.number, d.url])) : new Map<string, string>())),
+      stages: once(() => rows().get('stage') ?? new Map()),
+      questions: once(() => (dir ? folderQuestions(file!) : new Map())),
+      pages: once(() => (dir ? siblingPages(file!) : new Map())),
     };
     return {
       name: 'notes-links',
@@ -247,9 +270,15 @@ export function notesLinksPlugin(): MdastPluginEntry {
           if (!value) return ctx.removeNode(node);
           ctx.setProperty(node, 'value', value);
         }
-        if (!hasTargets(targets)) return;
-        for (let up = parent; up; up = ctx.parent(up as never)) {
+        // Not inside a link, Markdown or raw HTML, nor a heading.
+        for (let child: any = node, up: any = parent; up; child = up, up = ctx.parent(up as never)) {
           if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
+          let open = 0;
+          for (const sibling of up.children.slice(0, ctx.indexOf(child))) {
+            if (sibling.type !== 'html') continue;
+            open += (sibling.value.match(/<a[\s>]/gi) ?? []).length - (sibling.value.match(/<\/a\s*>/gi) ?? []).length;
+          }
+          if (open > 0) return;
         }
         const nodes = autolink(value, targets);
         if (nodes) ctx.replaceNode(node, nodes);
