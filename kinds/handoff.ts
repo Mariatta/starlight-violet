@@ -59,6 +59,8 @@ export const handoffSchema = z.object({
  * `<` outside code spans as text, so a placeholder such as `<id>` shows
  * rather than becoming a tag; an autolink (`<https://...>`) stays a link.
  */
+const AUTOLINK = /^<[a-z][a-z0-9+.-]{1,31}:[^\s<>\x00-\x1f\x7f]*>/i;
+
 export function escapeTags(text: string): string {
   let out = '';
   let i = 0;
@@ -82,9 +84,14 @@ export function escapeTags(text: string): string {
       const stop = close === -1 ? run : close + fence.length;
       out += text.slice(i, stop);
       i = stop;
+    } else if (char === '<') {
+      // An autolink (`<https://...>`, as CommonMark defines it) stays a link, taken whole so a
+      // backtick in it opens no code span; any other `<` is text.
+      const autolink = AUTOLINK.exec(text.slice(i))?.[0];
+      out += autolink ?? '&lt;';
+      i += autolink?.length ?? 1;
     } else {
-      // An autolink (`<https://...>`) stays a link; any other `<` is text.
-      out += char === '<' && !/^<[a-z][a-z0-9+.-]*:[^\s>]*>/i.test(text.slice(i)) ? '&lt;' : char;
+      out += char;
       i++;
     }
   }
