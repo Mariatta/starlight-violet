@@ -32,7 +32,7 @@ export interface CustomKind {
   render?: (data: any, inline: Inline) => Promise<void>;
 }
 
-/** Render inline Markdown to HTML; with `{ html: false }`, raw HTML in it shows as text and block syntax stays literal. */
+/** Render inline Markdown to HTML; with `{ html: false }`, raw HTML in it shows as text and blocks stay on the line as written. */
 export type Inline = (text: string, options?: { html?: boolean }) => Promise<string>;
 
 /** A page the site makes from something other than a Markdown file, such as a design specimen. */
