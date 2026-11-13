@@ -59,8 +59,12 @@ leaves folders out.
 | A card's description | The site's `sectionDescriptions` option, else the folder README's `description`, else Violet's default for `planning`, `reference`, `decisions` and `handoffs` |
 | The page a card leads to | The folder's `README.md`; else `/decisions/` for the decisions; else a page Violet makes, listing the folder's pages (for a folder holding only planning pages, its topics and recent changes). It heads the folder's sidebar group as "Overview" |
 
-With Starlight's `template: splash` and `hero` front matter on the site's
-`index.md`, that is the landing page:
+The landing page is an `index.md` at the top of the notes folder, kept with
+the notes, or else the site's own `src/content/docs/index.md`; one or the
+other, not both. It needs no `kind`, and the `require` and `looseFiles`
+options leave it alone. Violet files it as `src/content/docs/index.md`, so
+a hero image path is relative to that folder, not to the notes. With
+Starlight's `template: splash` and `hero` front matter, it looks like this:
 
 ```markdown
 ---

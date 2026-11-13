@@ -97,9 +97,9 @@ It needs Astro 7 with its default Sätteri Markdown processor and Starlight
 | `notes` | required | The notes folder, relative to the site's root, under any name: `../docs`, `../notes`, `../handoffs` |
 | `kinds` | `[]` | Built-in kinds this site uses: `planning`, `reference`, `decision`, `handoff` |
 | `customKinds` | `{}` | Kinds the site defines itself, by name; see the Extending page |
-| `require` | `{}` | Globs (relative to the notes) mapped to the kind their files must declare. `*` stays in one folder, `**` crosses folders, `?` is one character |
-| `looseFiles` | none | File the notes' top-level files under this folder, such as `reference` |
-| `skip` | `[]` | Globs of notes files to leave out, such as `README.md` |
+| `require` | `{}` | Globs (relative to the notes) mapped to the kind their files must declare. `*` stays in one folder, `**` crosses folders, `?` is one character. A top-level `index.md`, the landing page, is exempt |
+| `looseFiles` | none | File the notes' top-level files under this folder, such as `reference`, except a top-level `index.md`, the landing page |
+| `skip` | `[]` | Globs of notes files to leave out, such as `README.md`. It applies to a top-level `index.md` too |
 | `shortLabels` | `[]` | Folders whose pages the sidebar labels by file name instead of heading |
 | `acronyms` | `[]` | Words in capitals in labels made from file names |
 | `sidebar` | `'folders'` | Build the sidebar from the notes' folders, or `false` to keep the site's own |

@@ -1,6 +1,6 @@
 {
   "name": "starlight-violet",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Violet: a Starlight plugin for architecture notes, plans and decisions that live beside the code, read in place and checked against their front matter.",
   "license": "MIT",
   "type": "module",

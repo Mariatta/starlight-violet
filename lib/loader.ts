@@ -14,7 +14,7 @@ import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../ki
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
-import { idFor, isSkipped, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
+import { idFor, isSkipped, LANDING, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { headings, isSplit, pageParts, readPlan, type Plan } from './plans';
 
 /** Violet's guide pages are filed under this folder. */
@@ -134,6 +134,7 @@ export function notesLoader(): Loader {
             }
             const sitePathOf = role === 'guide' ? `${GUIDE}/${rel}` : rel;
             const id = role === 'guide' ? slugify(`${GUIDE}/${rel.replace(/\.md$/, '')}`) : idFor(file, dir);
+            if (taken.has(id) && id === 'index') throw new Error(`${shown} and ${taken.get(id)} are both a landing page; keep one`);
             if (taken.has(id)) throw new Error(`${shown} and ${taken.get(id)} both want the address /${id}/; rename one`);
             taken.set(id, shown);
 
@@ -151,7 +152,8 @@ export function notesLoader(): Loader {
               data.sidebar = { label: words(stem) };
             }
 
-            if (role === 'notes') {
+            // The landing page is the site's front door, not a page of any kind.
+            if (role === 'notes' && notesRel(file) !== LANDING) {
               const relInNotes = notesRel(file);
               const rule = options.require.find(([pattern]) => pattern.test(relInNotes));
               if (rule && data.kind === undefined) {
@@ -246,6 +248,7 @@ export function notesLoader(): Loader {
         for (const page of options.extraPages?.pages() ?? []) {
           const file = join(options.notesDir, page.rel);
           const id = idFor(file, options.notesDir).replace(/\/index$/, '');
+          if (taken.has(id) && id === 'index') throw new Error(`${taken.get(id)} and the generated ${page.rel} are both a landing page; keep one`);
           if (taken.has(id)) {
             throw new Error(`${taken.get(id)} takes the address /${id}/, which the generated ${page.rel} needs; rename one of them`);
           }
