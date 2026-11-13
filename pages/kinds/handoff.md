@@ -20,8 +20,13 @@ time: a missing field or a missing section fails the build and names it.
 | `status` | yes | `draft`, `ready`, `picked-up` or `done` |
 | `decisions` | no | Four-digit numbers of the decisions it rests on |
 | `inputs` | yes | Files or folders to read, in reading order |
-| `open_questions` | no | `id`, `question` (Markdown allowed), `blocks` (what waits on it), `owner` (default: Violet's `owner` option), `answer` (empty until answered) |
-| `next_steps` | yes | What the receiving agent does, in order |
+| `open_questions` | no | `id`, `question`, `blocks` (what waits on it), `owner` (default: Violet's `owner` option), `answer` (empty until answered); `question`, `blocks` and `answer` are Markdown |
+| `next_steps` | yes | What the receiving agent does, in order; Markdown |
+
+The Markdown fields link as the body does: "Q3", "SPEC 3.2", "PLAN.md §6",
+"Stage 1" and "decision 0011" become links. Each question's row has the
+anchor of its id (`#q3`), so any page in the handoff's folder can link to it
+by writing "Q3".
 
 ## Sections
 

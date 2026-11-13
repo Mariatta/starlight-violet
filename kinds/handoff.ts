@@ -44,18 +44,23 @@ export const handoffSchema = z.object({
       z.object({
         id: z.string(),
         question: z.string().describe('Inline Markdown; the loader renders it'),
-        blocks: z.string().optional(),
+        blocks: z.string().optional().describe('Inline Markdown; the loader renders it'),
         owner: z.string().optional().describe("Defaults to Violet's `owner` option"),
-        answer: z.string().nullable().default(null),
+        answer: z.string().nullable().default(null).describe('Inline Markdown; the loader renders it'),
       }),
     )
     .default([]),
-  next_steps: z.array(z.string()).min(1),
+  next_steps: z.array(z.string()).min(1).describe('Inline Markdown; the loader renders each'),
   /** The page's path in the notes repo, filled in by the loader for error messages. */
   source: z.string().optional(),
 });
 
-/** Render the inline-Markdown fields to HTML in place. */
+/** Render the inline-Markdown fields to HTML in place, so their references link as the body's do. */
 export async function renderHandoff(data: z.infer<typeof handoffSchema>, inline: (text: string) => Promise<string>) {
-  for (const question of data.open_questions) question.question = await inline(question.question);
+  for (const question of data.open_questions) {
+    question.question = await inline(question.question);
+    if (question.blocks) question.blocks = await inline(question.blocks);
+    if (question.answer) question.answer = await inline(question.answer);
+  }
+  data.next_steps = await Promise.all(data.next_steps.map(inline));
 }

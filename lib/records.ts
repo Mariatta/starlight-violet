@@ -25,6 +25,7 @@ export function readDecisions(): Decision[] {
 }
 
 export interface Handoff {
+  file: string;
   id: string;
   url: string;
   data: Record<string, unknown>;
@@ -32,5 +33,5 @@ export interface Handoff {
 
 /** Every handoff page, unvalidated; the loader validates. */
 export function readHandoffs(): Handoff[] {
-  return readKind('handoff').map(({ id, url, data }) => ({ id, url, data }));
+  return readKind('handoff').map(({ file, id, url, data }) => ({ file, id, url, data }));
 }

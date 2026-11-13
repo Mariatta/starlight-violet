@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- References in a work folder link: "Q3" (and "Q3 to Q9") to that question on the folder's handoff; "SPEC", "PLAN.md §6 and §6.4", "SPEC 3.2", "SPEC section 7" and "SPEC principle 2" to that page and section, for any capitalised page of the folder except README.md; "task 1.2", "Stage 1" and "stages 6 and 7" to that row of the plan's numbered table, whose rows now get anchors (`#task-1-2`, `#stage-1`). "Task 3" also matches in lower case and with dotted numbers.
+- A handoff's `blocks`, `answer` and `next_steps` are rendered as Markdown, like `question`, so their references link.
+- A handoff's next steps are numbered like Starlight's Steps (`sl-steps`); before, the list had a class no style matched.
+
 ## 0.2.2 (2026-11-13)
 
 - An `index.md` at the top of the notes folder is the site's landing page, so it can live with the notes instead of in the site's `src/content/docs/`. It needs no `kind`, and the `require` and `looseFiles` options leave it alone; it is not listed among the loose pages. Having both is an error naming the two files. Its front matter is read as if it were `src/content/docs/index.md`, so a hero image path is relative to that folder. A generated page (`extraPages`) at `index.md` is the landing page too.
