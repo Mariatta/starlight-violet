@@ -70,18 +70,18 @@ export function pageParts(id: string, data: Record<string, unknown>, body: strin
   const url = pageUrl(id);
   if (!isSplit(data)) return [{ id, url, body, anchors: headings(body) }];
   const lines = body.split('\n');
-  // Each part starts at a top-level # heading, as the parser reads the body.
-  const starts = (parse(body).children as { type: string; depth?: number; position?: { start: { line: number } } }[])
+  // Each part starts at a top-level # heading with text, as the parser reads
+  // the body; its body starts after the heading's last line (a setext
+  // heading's === underline included).
+  const starts = (parse(body).children as { type: string; depth?: number; position?: { start: { line: number }; end: { line: number } } }[])
     .filter((node) => node.type === 'heading' && node.depth === 1 && node.position)
-    .map((node) => {
-      const line = node.position!.start.line - 1;
-      return { line, text: lines[line].replace(/^ {0,3}#\s+/, '').replace(/\s+#+\s*$/, '').trim() };
-    });
+    .map((node) => ({ line: node.position!.start.line - 1, after: node.position!.end.line, text: textOf(node as never, body).trim() }))
+    .filter(({ text }) => text);
   const slugger = new Slugger();
   const overview = lines.slice(0, starts[0]?.line ?? lines.length).join('\n');
   const parts: Part[] = [{ id, url, body: overview, anchors: headings(overview) }];
-  starts.forEach(({ line, text }, index) => {
-    const partBody = lines.slice(line + 1, starts[index + 1]?.line ?? lines.length).join('\n');
+  starts.forEach(({ after, text }, index) => {
+    const partBody = lines.slice(after, starts[index + 1]?.line ?? lines.length).join('\n');
     const pr = PR_HEADING.exec(text);
     const slug = pr ? `pr-${pr[1]}` : slugger.slug(plain(text));
     const partId = `${id}/${slug}`;
@@ -124,9 +124,20 @@ interface Heading {
 export function headings(body: string): Heading[] {
   const slugger = new Slugger();
   return nodesOf<{ type: string; depth: number; children: unknown[] }>(parse(body), 'heading')
-    .map((node) => ({ depth: node.depth, text: textOf(node).trim() }))
+    .map((node) => ({ depth: node.depth, text: textOf(node as never, body).trim() }))
     .filter(({ text }) => text)
     .map(({ depth, text }) => ({ depth, text, slug: slugger.slug(text) }));
+}
+
+/**
+ * The page's own sections: its level-two headings at the top level of the
+ * body, not ones inside a quote, list item or directive, which belong to
+ * that block. What a kind's `sections` rule checks.
+ */
+export function sectionHeadings(body: string): string[] {
+  return (parse(body).children as { type: string; depth?: number }[])
+    .filter((node) => node.type === 'heading' && node.depth === 2)
+    .map((node) => textOf(node as never, body).trim());
 }
 
 function plain(text: string): string {

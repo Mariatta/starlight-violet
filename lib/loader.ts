@@ -15,7 +15,7 @@ import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
 import { idFor, isSkipped, LANDING, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
-import { headings, isSplit, pageParts, readPlan, type Plan } from './plans';
+import { isSplit, pageParts, readPlan, sectionHeadings, type Plan } from './plans';
 import { notFrontMatter, renderPlain } from '../markdown/plain';
 
 /** Violet's guide pages are filed under this folder. */
@@ -179,7 +179,7 @@ export function notesLoader(): Loader {
               } catch (error) {
                 throw new Error(`${shown} is not a valid ${data.kind} page: ${describe(error)}`);
               }
-              const sectionsFound = headings(body).filter((h) => h.depth === 2).map((h) => h.text);
+              const sectionsFound = sectionHeadings(body);
               const problem = sectionProblem(kind, sectionsFound);
               if (problem) throw new Error(`${shown} is a ${data.kind} and ${problem}`);
               const planProblems = role === 'notes' ? (readPlan(file)?.problems ?? []) : [];
