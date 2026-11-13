@@ -3,6 +3,9 @@
 ## Unreleased
 
 - A page whose body starts with a horizontal rule (`---` right under its front matter or its `# Title`) keeps everything up to the next rule. Before, the rendered page read that stretch as front matter and dropped it, or failed the build when it was not valid YAML.
+- References in a work folder link: "Q3" (and "Q3 to Q9") to that question on the folder's handoff; "SPEC", "PLAN.md §6 and §6.4", "SPEC 3.2", "SPEC section 7" and "SPEC principle 2" to that page and section, for any capitalised page of the folder except README.md; "task 1.2", "Stage 1" and "stages 6 and 7" to that row of the plan's numbered table, whose rows now get anchors (`#task-1-2`, `#stage-1`). "Task 3" also matches in lower case and with dotted numbers.
+- A handoff's `blocks`, `answer` and `next_steps` are rendered as Markdown, like `question`, so their references link.
+- A handoff's next steps are numbered like Starlight's Steps (`sl-steps`); before, the list had a class no style matched.
 
 ## 0.2.2 (2026-11-13)
 
