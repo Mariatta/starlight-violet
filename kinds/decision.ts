@@ -1,5 +1,6 @@
 /** The decision kind: one numbered architecture decision, with its status as data. */
 import { z } from 'astro/zod';
+import type { Inline } from '../options';
 
 export const DECISION_STATUSES = ['proposed', 'locked', 'superseded'] as const;
 
@@ -57,7 +58,7 @@ export function shortTitle(title: string): string {
 }
 
 /** Render the inline-Markdown fields to HTML in place. */
-export async function renderDecision(data: z.infer<typeof decisionSchema>, inline: (text: string) => Promise<string>) {
+export async function renderDecision(data: z.infer<typeof decisionSchema>, inline: Inline) {
   for (const key of ['ask', 'confirmed', 'reason', 'note'] as const) {
     if (data[key]) data[key] = await inline(data[key]!);
   }
