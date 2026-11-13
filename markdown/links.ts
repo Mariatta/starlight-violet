@@ -213,8 +213,19 @@ function autolink(value: string, targets: Targets): PhrasingContent[] | undefine
   return out;
 }
 
+/** Raw <a> tags opened less closed in a node and everything inside it; a tag inside a comment is not one. */
+function openAnchors(node: any): number {
+  if (node.type === 'html') {
+    const tags = node.value.replace(/<!--[\s\S]*?-->/g, '');
+    return (tags.match(/<a[\s>]/gi) ?? []).length - (tags.match(/<\/a\s*>/gi) ?? []).length;
+  }
+  return (node.children ?? []).reduce((sum: number, child: any) => sum + openAnchors(child), 0);
+}
+
 export function notesLinksPlugin(): MdastPluginEntry {
-  return ({ fileURL }) => {
+  return ({ fileURL, source }) => {
+    // Only a page with a raw <a> needs its earlier tags counted.
+    const rawAnchors = /<a[\s>]/i.test(source);
     const file = fileURL ? fileURLToPath(fileURL) : undefined;
     const dir = file && file.startsWith(notesDir()) ? dirname(file) : undefined;
     const plans = new Map<string, Plan | undefined>();
@@ -271,19 +282,16 @@ export function notesLinksPlugin(): MdastPluginEntry {
           ctx.setProperty(node, 'value', value);
         }
         // Not inside a link, Markdown or raw HTML, nor a heading. A raw <a>
-        // opened earlier in the paragraph, or in an HTML block before it, holds
-        // this text (browsers reopen it), so tags are counted up to the root;
-        // a tag inside a comment is not one.
+        // opened anywhere earlier and not closed holds this text (browsers
+        // reopen it in later blocks), so every tag before it is counted.
+        let open = 0;
         for (let child: any = node, up: any = parent; up; child = up, up = ctx.parent(up as never)) {
           if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
-          let open = 0;
-          for (const sibling of up.children.slice(0, ctx.indexOf(child))) {
-            if (sibling.type !== 'html') continue;
-            const tags = sibling.value.replace(/<!--[\s\S]*?-->/g, '');
-            open += (tags.match(/<a[\s>]/gi) ?? []).length - (tags.match(/<\/a\s*>/gi) ?? []).length;
-          }
-          if (open > 0) return;
+          // Everything before this text in the document, at every level and inside earlier blocks,
+          // so a </a> anywhere before closes an <a> opened anywhere before that.
+          if (rawAnchors) for (const sibling of up.children.slice(0, ctx.indexOf(child))) open += openAnchors(sibling);
         }
+        if (open > 0) return;
         const nodes = autolink(value, targets);
         if (nodes) ctx.replaceNode(node, nodes);
       },
