@@ -44,14 +44,14 @@ const LIST = String.raw`${NUMBER}(?:(?:,\s*|\s+and\s+|,\s*and\s+|\s+to\s+)${NUMB
 const NOT_AFTER = String.raw`(?<!\b(?:this|that|these|those|each|every|any|which|what)\s)`;
 const TASKS = new RegExp(String.raw`${NOT_AFTER}\b(Tasks?)(\s+)(${LIST})\b`, 'gi');
 const STAGES = new RegExp(String.raw`${NOT_AFTER}\b(Stages?)(\s+)(${LIST})\b`, 'gi');
-/** "Q3", but not a quarter: "Q1 2027", "2027 Q1", "FY2027 Q1", "Q1 FY27". */
-const QUESTIONS = /(?<!(?:(?:19|20)\d\d|FY\s?\d\d)\s?)\bQ\d+\b(?!\s?(?:(?:19|20)\d\d|FY\s?\d\d)\b)/g;
+/** "Q3", but not a quarter: "Q1 2027", "2027 Q1", "FY2027 Q1", "Q1 FY27", "Q1 FY2027". */
+const QUESTIONS = /(?<!(?:(?:19|20)\d\d|FY\s?\d\d)\s?)\bQ\d+\b(?!\s?(?:FY\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)/g;
 /** A section number: "6", "6.4", "1a". */
 const SECTION = String.raw`\d+[a-z]?(?:\.\d+)*`;
 /** What may follow a page's name: "§6", "section 7", "principle 2", "3.2". */
 const PAGE_SECTION = new RegExp(String.raw`^\s+(?:§\s?(${SECTION})|sections?\s+(${SECTION})|(principles?)\s+\d+\b|(\d+[a-z]|\d+(?:\.\d+)+)\b(?!\s*(?:%|x\b|h\b|days?|hours?|weeks?|months?|years?|minutes?|mins?|points?|pts?|times)))`, 'i');
 /** A further section of the same page: ", §6.4", " and §2". */
-const MORE_SECTIONS = new RegExp(String.raw`^(,\s*|\s+and\s+|\s+or\s+)(§\s?(${SECTION}))(?!\s+(?:of|in|from)\b)`);
+const MORE_SECTIONS = new RegExp(String.raw`^(,\s*|\s+and\s+|\s+or\s+)(§\s?(${SECTION}))(?!\w|\.\d)(?!\s+(?:of|in|from)\b)`);
 const DECISIONS = /\b(decisions?)(\s+)(\d{4}(?:(?:,\s*|\s+and\s+|,\s*and\s+)\d{4})*)/gi;
 
 /** An attribute list, as in Python-Markdown, kramdown and Pandoc: `{ target=_blank .class #id }`. */
@@ -270,15 +270,19 @@ export function notesLinksPlugin(): MdastPluginEntry {
           if (!value) return ctx.removeNode(node);
           ctx.setProperty(node, 'value', value);
         }
-        // Not inside a link, Markdown or raw HTML, nor a heading.
-        for (let child: any = node, up: any = parent; up; child = up, up = ctx.parent(up as never)) {
+        // Not inside a link, Markdown or raw HTML, nor a heading. Raw tags are
+        // counted within the paragraph or cell only: an HTML block elsewhere
+        // on the page does not hold this text.
+        for (let child: any = node, up: any = parent; up && up.type !== 'root'; child = up, up = ctx.parent(up as never)) {
           if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
           let open = 0;
           for (const sibling of up.children.slice(0, ctx.indexOf(child))) {
             if (sibling.type !== 'html') continue;
-            open += (sibling.value.match(/<a[\s>]/gi) ?? []).length - (sibling.value.match(/<\/a\s*>/gi) ?? []).length;
+            const tags = sibling.value.replace(/<!--[\s\S]*?-->/g, '');
+            open += (tags.match(/<a[\s>]/gi) ?? []).length - (tags.match(/<\/a\s*>/gi) ?? []).length;
           }
           if (open > 0) return;
+          if (up.type === 'paragraph' || up.type === 'tableCell') break;
         }
         const nodes = autolink(value, targets);
         if (nodes) ctx.replaceNode(node, nodes);
