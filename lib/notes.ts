@@ -28,6 +28,9 @@ export function notesRel(file: string): string {
   return relative(notesDir(), file);
 }
 
+/** The notes file that is the site's landing page: an `index.md` at the top of the notes. */
+export const LANDING = 'index.md';
+
 /** Whether the site leaves this notes file out. */
 export function isSkipped(rel: string): boolean {
   return getOptions().skip.some((pattern) => pattern.test(rel));
@@ -48,7 +51,7 @@ export function listMarkdown(dir: string): string[] {
 
 /** Every Markdown page of the notes folder the site keeps. */
 export function notesPages(): string[] {
-  return listMarkdown(notesDir()).filter((file) => !isSkipped(notesRel(file)));
+  return listMarkdown(notesDir()).filter((file) => !isSkipped(notesRel(file)) && notesRel(file) !== LANDING);
 }
 
 /** Every file under `dir`, skipping dotfiles, build folders and, at the top, private folders. */
@@ -108,11 +111,14 @@ export function slugify(path: string): string {
     .join('/');
 }
 
-/** A file's path as the site files it: top-level notes files move under `looseFiles` when set. */
+/**
+ * A file's path as the site files it: top-level notes files move under
+ * `looseFiles` when set, except the landing page.
+ */
 export function sitePath(file: string, root: string): string {
   const rel = relative(root, file);
   const { looseFiles, notesDir: notes } = getOptions();
-  return looseFiles && root === notes && !rel.includes('/') ? `${looseFiles}/${rel}` : rel;
+  return looseFiles && root === notes && !rel.includes('/') && rel !== LANDING ? `${looseFiles}/${rel}` : rel;
 }
 
 /** The page id of a Markdown file: its site path without `.md` and without a trailing README. */

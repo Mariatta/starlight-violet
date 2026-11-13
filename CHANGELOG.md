@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- An `index.md` at the top of the notes folder is the site's landing page, so it can live with the notes instead of in the site's `src/content/docs/`. It needs no `kind`, `require` and `looseFiles` leave it alone, and it is not listed among the loose pages. Having both is an error naming the two files.
+
 ## 0.2.1 (2026-11-12)
 
 - Planning pages can live in any folder. A plan's topic is the folder that holds it, wherever it is, and pages directly in a top-level folder (`finance/PLAN.md`) have that folder as their topic. `topic=` in `:task`, `:pr`, `::prs`, `::tasks` and `::planning` finds the planning folder of that name anywhere in the notes, or takes its path when two folders share a name (the build names the page and both folders); for a plan whose pages declare no kind, it still finds the folder by path, or under `planning/` as before. `::topics` groups by folder and tells folders that share a name apart by path. A top folder holding only planning pages gets its own topics and recent changes on its section page, not just one named `planning`; `::topics` and `::planning` take `in=<folder>` for that. A subfolder inside a plan's folder (`planning/big/research/`) is now a topic of its own.

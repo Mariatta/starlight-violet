@@ -14,7 +14,7 @@ import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../ki
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
-import { idFor, isSkipped, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
+import { idFor, isSkipped, LANDING, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { headings, isSplit, pageParts, readPlan, type Plan } from './plans';
 
 /** Violet's guide pages are filed under this folder. */
@@ -151,7 +151,8 @@ export function notesLoader(): Loader {
               data.sidebar = { label: words(stem) };
             }
 
-            if (role === 'notes') {
+            // The landing page is the site's front door, not a page of any kind.
+            if (role === 'notes' && notesRel(file) !== LANDING) {
               const relInNotes = notesRel(file);
               const rule = options.require.find(([pattern]) => pattern.test(relInNotes));
               if (rule && data.kind === undefined) {
