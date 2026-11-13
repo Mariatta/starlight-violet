@@ -213,19 +213,39 @@ function autolink(value: string, targets: Targets): PhrasingContent[] | undefine
   return out;
 }
 
-/** Raw <a> tags opened less closed in a node and everything inside it; a tag inside a comment is not one. */
-function openAnchors(node: any): number {
-  if (node.type === 'html') {
-    const tags = node.value.replace(/<!--[\s\S]*?-->/g, '');
-    return (tags.match(/<a[\s>]/gi) ?? []).length - (tags.match(/<\/a\s*>/gi) ?? []).length;
-  }
-  return (node.children ?? []).reduce((sum: number, child: any) => sum + openAnchors(child), 0);
+/**
+ * The stretches of a document's source that a raw <a> holds, read in
+ * document order as a browser reads tags: an <a> opens (closing any open
+ * one), a </a> closes, a stray </a> does nothing, and a tag inside a
+ * comment is not one. An anchor left open holds everything after it, since
+ * browsers reopen it in later blocks.
+ */
+function rawAnchorSpans(root: any): [number, number][] {
+  const spans: [number, number][] = [];
+  let openedAt: number | undefined;
+  const walk = (node: any) => {
+    if (node.type === 'html') {
+      const tags = node.value.replace(/<!--[\s\S]*?-->/g, '');
+      for (const [tag] of tags.matchAll(/<a[\s>]|<\/a\s*>/gi)) {
+        if (tag.startsWith('</')) {
+          if (openedAt !== undefined) spans.push([openedAt, node.position?.end.offset ?? openedAt]);
+          openedAt = undefined;
+        } else openedAt ??= node.position?.end.offset ?? 0;
+      }
+      return;
+    }
+    for (const child of node.children ?? []) walk(child);
+  };
+  walk(root);
+  if (openedAt !== undefined) spans.push([openedAt, Infinity]);
+  return spans;
 }
 
 export function notesLinksPlugin(): MdastPluginEntry {
   return ({ fileURL, source }) => {
-    // Only a page with a raw <a> needs its earlier tags counted.
+    // Only a page with a raw <a> needs positions and a pass over its tags.
     const rawAnchors = /<a[\s>]/i.test(source);
+    let anchored: [number, number][] = [];
     const file = fileURL ? fileURLToPath(fileURL) : undefined;
     const dir = file && file.startsWith(notesDir()) ? dirname(file) : undefined;
     const plans = new Map<string, Plan | undefined>();
@@ -244,6 +264,12 @@ export function notesLinksPlugin(): MdastPluginEntry {
     };
     return {
       name: 'notes-links',
+      ...(rawAnchors && {
+        options: { position: true },
+        before(root: any) {
+          anchored = rawAnchorSpans(root);
+        },
+      }),
       link(node, ctx) {
         if (!dir) return;
         const url = rewrite(node.url, dir, file);
@@ -281,17 +307,12 @@ export function notesLinksPlugin(): MdastPluginEntry {
           if (!value) return ctx.removeNode(node);
           ctx.setProperty(node, 'value', value);
         }
-        // Not inside a link, Markdown or raw HTML, nor a heading. A raw <a>
-        // opened anywhere earlier and not closed holds this text (browsers
-        // reopen it in later blocks), so every tag before it is counted.
-        let open = 0;
-        for (let child: any = node, up: any = parent; up; child = up, up = ctx.parent(up as never)) {
+        // Not inside a link, Markdown or raw HTML, nor a heading.
+        for (let up: any = parent; up; up = ctx.parent(up as never)) {
           if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
-          // Everything before this text in the document, at every level and inside earlier blocks,
-          // so a </a> anywhere before closes an <a> opened anywhere before that.
-          if (rawAnchors) for (const sibling of up.children.slice(0, ctx.indexOf(child))) open += openAnchors(sibling);
         }
-        if (open > 0) return;
+        const at = (node as any).position?.start.offset;
+        if (at !== undefined && anchored.some(([from, to]) => at >= from && at < to)) return;
         const nodes = autolink(value, targets);
         if (nodes) ctx.replaceNode(node, nodes);
       },
