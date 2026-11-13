@@ -224,7 +224,11 @@ export default function violet(options: VioletOptions): StarlightPlugin {
               processor.options.hastPlugins.push(rowAnchorsPlugin());
               processor.options.features.directive = true;
               // Headings, tables and plan parts are read with the same parser and features the pages render with.
-              setParseFeatures({ gfm: astroSetupConfig.markdown.gfm !== false, ...processor.options.features });
+              setParseFeatures({
+                gfm: astroSetupConfig.markdown.gfm !== false,
+                smartPunctuation: astroSetupConfig.markdown.smartypants !== false,
+                ...processor.options.features,
+              });
               if (resolved.kinds.includes('decision')) {
                 injectRoute({ pattern: '/decisions', entrypoint: `${PACKAGE}/routes/decisions.astro`, prerender: true });
               }

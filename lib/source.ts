@@ -40,10 +40,34 @@ export function parse(body: string): Root {
   return tree;
 }
 
-/** A node's text as it reads: its text and code, without raw HTML tags. */
-export function textOf(node: { type: string; value?: string; children?: unknown[] }): string {
+interface TextNode {
+  type: string;
+  value?: string;
+  name?: string;
+  label?: string;
+  identifier?: string;
+  children?: TextNode[];
+  position?: { start: { offset?: number }; end: { offset?: number } };
+}
+
+/**
+ * A node's text as the rendered page reads it, which is what its anchor is
+ * made from: text and code, a footnote reference's label, `:task[3]` as
+ * "Task 3" and `:pr[2]` as "PR 2" (what Violet makes of them), any other
+ * text directive as its source (it renders as written), and no raw HTML
+ * tags. `source` is the text the node was parsed from.
+ */
+export function textOf(node: TextNode, source?: string): string {
   if (node.type === 'text' || node.type === 'inlineCode') return node.value ?? '';
-  return ((node.children ?? []) as (typeof node)[]).map(textOf).join('');
+  if (node.type === 'footnoteReference') return node.label ?? node.identifier ?? '';
+  if (node.type === 'textDirective') {
+    const label = (node.children ?? []).map((child) => textOf(child, source)).join('').trim();
+    if (node.name === 'task') return `Task ${label}`;
+    if (node.name === 'pr') return `PR ${label}`;
+    const { start, end } = node.position ?? {};
+    if (source !== undefined && start?.offset !== undefined && end?.offset !== undefined) return source.slice(start.offset, end.offset);
+  }
+  return (node.children ?? []).map((child) => textOf(child, source)).join('');
 }
 
 /** Every node of a type in a tree, in document order. */
