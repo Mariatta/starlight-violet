@@ -7,7 +7,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Slugger from 'github-slugger';
-import { idFor, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
+import { idFor, isSkipped, LANDING, notesDir, notesRel, pageUrl, readKind, readPage, splitTitle } from './notes';
 import { cached, fencedLines } from './source';
 
 export interface PlanTask {
@@ -114,46 +114,67 @@ interface Heading {
   slug: string;
 }
 
-/** A line that starts a block of its own, so it cannot be a setext heading's text. */
-const NOT_SETEXT_TEXT = /^(?: {4}|\s*(?:[-+*]\s|\d{1,9}[.)]\s|>|\||#{1,6}(?:\s|$)|$))/;
+/** A line that starts a block other than a paragraph, when no paragraph is open. */
+const BLOCK_START = /^(?: {4}|\s{0,3}(?:[-+*](?:\s|$)|\d{1,9}[.)](?:\s|$)|>|<[a-zA-Z/!?]|\[[^\]]+\]:))/;
+/** A line that ends an open paragraph by starting another block; an indented line or a definition cannot. */
+const INTERRUPTS = /^\s{0,3}(?:[-+*]\s+\S|1[.)]\s+\S|>|<[a-zA-Z/!?])/;
+const THEMATIC_BREAK = /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/;
+/** A table's delimiter row: dashes between pipes. A row of dashes with no pipe underlines a heading instead. */
+export function isDelimiterRow(line: string): boolean {
+  return line.includes('|') && /^ {0,3}\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/.test(line);
+}
 
 /**
  * The body's headings with the anchors the renderer gives them, in order:
  * `#` headings, and setext ones (a paragraph underlined with `===` or
- * `---`). Fenced code is skipped.
+ * `---`). Fenced code is skipped. Headings inside quotes and list items are
+ * not read, nor is a code fence written inside a raw HTML block told apart.
  */
 export function headings(body: string): Heading[] {
   const slugger = new Slugger();
   const found: Heading[] = [];
   const lines = body.split('\n');
   const code = fencedLines(lines);
-  // The block being read: a paragraph (its lines so far) or another block, until a blank line.
+  // The block being read until a blank line: a paragraph (its lines so far), or another block.
   let paragraph: string[] | undefined;
-  let other = false;
+  // Another block: 'html' runs to the blank line whatever it holds; 'block' (list, quote, table) ends at a # heading.
+  let other: false | 'html' | 'block' = false;
+  const kindOf = (line: string) => (/^\s{0,3}</.test(line) ? 'html' : 'block');
+  const add = (depth: number, text: string) => found.push({ depth, text, slug: slugger.slug(text) });
   for (const [index, line] of lines.entries()) {
     if (code[index] || !line.trim()) {
       paragraph = undefined;
       other = false;
       continue;
     }
-    const match = /^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
-    if (match) {
+    const atx = other === 'html' ? null : /^ {0,3}(#{1,6})(?:\s+(.*?))?\s*#*\s*$/.exec(line);
+    if (atx) {
       // A # heading ends whatever block came before it.
-      found.push({ depth: match[1].length, text: match[2], slug: slugger.slug(match[2]) });
+      if (atx[2]) add(atx[1].length, atx[2]);
       paragraph = undefined;
       other = false;
       continue;
     }
-    const underline = /^ {0,3}(=+|-+)\s*$/.exec(line);
-    if (underline && paragraph) {
-      const text = paragraph.join(' ').trim();
-      found.push({ depth: underline[1][0] === '=' ? 1 : 2, text, slug: slugger.slug(text) });
-      paragraph = undefined;
+    if (paragraph) {
+      const underline = /^ {0,3}(=+|-+)\s*$/.exec(line);
+      if (underline) {
+        add(underline[1][0] === '=' ? 1 : 2, paragraph.join(' '));
+        paragraph = undefined;
+      } else if (THEMATIC_BREAK.test(line) || INTERRUPTS.test(line) || (line.includes('|') && isDelimiterRow(lines[index + 1] ?? ''))) {
+        paragraph = undefined;
+        other = THEMATIC_BREAK.test(line) ? false : kindOf(line);
+      } else paragraph.push(line.trim());
       continue;
     }
-    if (paragraph) paragraph.push(line);
-    else if (!other && NOT_SETEXT_TEXT.test(line)) other = true;
-    else if (!other) paragraph = [line];
+    if (other) {
+      // An HTML block can interrupt a list item or quote, and then holds what follows.
+      if (other === 'block' && /^\s{0,3}<[a-zA-Z/!?]/.test(line)) other = 'html';
+      continue;
+    }
+    if (THEMATIC_BREAK.test(line)) continue;
+    // A table, when its next line is a delimiter row; a | line without one is a paragraph.
+    if (BLOCK_START.test(line) || (line.includes('|') && isDelimiterRow(lines[index + 1] ?? ''))) other = kindOf(line);
+    else paragraph = [line.trim()];
   }
   return found;
 }
@@ -289,6 +310,9 @@ function planInFolder(folder: string): Plan | undefined {
   if (!existsSync(folder)) return;
   for (const entry of readdirSync(folder).sort()) {
     if (!entry.endsWith('.md')) continue;
+    // A page the site leaves out is no one's plan.
+    const rel = notesRel(join(folder, entry));
+    if (isSkipped(rel) || rel === LANDING) continue;
     const plan = readPlan(join(folder, entry));
     if (plan) return plan;
   }

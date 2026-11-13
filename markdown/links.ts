@@ -43,9 +43,14 @@ const LIST = String.raw`${NUMBER}(?:(?:,\s*|\s+and\s+|,\s*and\s+|\s+to\s+)${NUMB
 /** "this stage 2 people" counts; "stage 2" after one of these words is not a reference. */
 const NOT_AFTER = String.raw`(?<!\b(?:this|that|these|those|each|every|any|which|what)\s)`;
 /** A count or a length of time after a number: "the task 3 times", "stage 2 days later", "2.5 days". */
-const UNIT = String.raw`(?!\.\d)(?!\s*(?:%|x\b|h\b|times?\b|days?\b|hours?\b|weeks?\b|months?\b|years?\b|minutes?\b|mins?\b|people\b|points?\b|pts?\b))`;
-const TASKS = new RegExp(String.raw`${NOT_AFTER}\b(Tasks?)(\s+)(${LIST})\b${UNIT}`, 'gi');
-const STAGES = new RegExp(String.raw`${NOT_AFTER}\b(Stages?)(\s+)(${LIST})\b${UNIT}`, 'gi');
+const UNIT = String.raw`(?!\.\d)(?!\s*(?:%|x\b|h\b|times?\b(?!\s+out\b)|days?\b|hours?\b|weeks?\b|months?\b|years?\b|minutes?\b|mins?\b|people\b|points?\b(?!\s+(?:to|at)\b)|pts?\b))`;
+/**
+ * "Task 3", "tasks 2 and 3": the list is taken whole (a lookahead holds it,
+ * so it cannot back off), so a count after its last number ("tasks 2 and
+ * 3 days") rules out the whole list rather than leaving "tasks 2" linked.
+ */
+const TASKS = new RegExp(String.raw`${NOT_AFTER}\b(Tasks?)(\s+)(?=(${LIST}))\3\b${UNIT}`, 'gi');
+const STAGES = new RegExp(String.raw`${NOT_AFTER}\b(Stages?)(\s+)(?=(${LIST}))\3\b${UNIT}`, 'gi');
 /** "Q3", but not a quarter: "Q1 2027", "2027 Q1", "FY2027 Q1", "Q1 FY27", "Q1 FY2027". */
 const QUESTIONS = /(?<!(?:(?:19|20)\d\d|FY\s?\d\d)\s?)\bQ\d+\b(?!\s?(?:FY\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)/gi;
 /** A section number: "6", "6.4", "1a". */

@@ -34,7 +34,7 @@ export function fencedLines(lines: readonly string[]): boolean[] {
 
 const memo = new Map<string, { mtime: number; value: unknown }>();
 /** Entries kept at most; the least recently used goes first, so a long dev session does not grow it forever. */
-const LIMIT = 2000;
+const LIMIT = 20000;
 
 /**
  * A value worked out from a file or folder, worked out again only when its

@@ -8,7 +8,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { idFor, isSkipped, LANDING, notesDir, notesRel, pageUrl, readPage, splitTitle, type Page } from './notes';
-import { anchorUrl, headings, isSplit, pageParts, planFor } from './plans';
+import { anchorUrl, headings, isDelimiterRow, isSplit, pageParts, planFor } from './plans';
 import { cached, fencedLines } from './source';
 
 /** A table whose first header cell is one of these numbers its rows: `#` rows are tasks. */
@@ -71,10 +71,11 @@ export function tableRows(body: string): Map<string, Map<string, string>> {
   const rows = new Map<string, Map<string, string>>();
   const lines = body.split('\n');
   const code = fencedLines(lines);
-  const delimiter = (line: string) => /^ {0,3}\|?\s*:?-{3,}/.test(line);
+  const delimiter = isDelimiterRow;
   let kind: string | undefined;
   lines.forEach((line, index) => {
-    if (code[index] || /^ {4}/.test(line) || !line.trim().startsWith('|')) {
+    // A table's lines carry pipes, leading or not; a line without one ends it.
+    if (code[index] || /^ {4}/.test(line) || !line.includes('|')) {
       kind = undefined;
       return;
     }
@@ -194,26 +195,31 @@ export function folderQuestions(file: string): Map<string, string> {
 }
 
 /**
- * The plan of a page's folder, the same one the task links use: the plan
- * `planFor` finds (the page itself, or the folder's page declaring tasks or
- * PRs), else PLAN.md, else a planning page of type plan.
+ * The plan pages of a page's folder, in the order they answer: first the
+ * plan the task links use (`planFor`: the page itself, or the folder's
+ * page declaring tasks or PRs), then PLAN.md, then a planning page of type
+ * plan. Only pages the site builds.
  */
-export function folderPlan(file: string): string | undefined {
-  const declared = planFor(file)?.file;
-  if (declared) return declared;
-  const plan = siblingPages(file).get('PLAN');
-  if (plan) return plan.file;
-  return markdownFiles(dirname(file)).find((f) => page(f).data.type === 'plan');
+export function folderPlans(file: string): string[] {
+  const plans = [planFor(file)?.file, siblingPages(file).get('PLAN')?.file, markdownFiles(dirname(file)).find((f) => page(f).data.type === 'plan')];
+  return [...new Set(plans.filter((f): f is string => f !== undefined))];
 }
 
-/** The numbered rows of the folder's plan, by kind and label, each to its anchor. */
+/**
+ * The numbered rows of the folder's plan, by kind and label, each to its
+ * anchor. Each kind comes from the first plan page that has rows of it, so
+ * a page declaring tasks does not hide PLAN.md's stage table.
+ */
 export function folderRows(file: string): Map<string, Map<string, string>> {
-  const plan = folderPlan(file);
   const out = new Map<string, Map<string, string>>();
-  if (!plan) return out;
-  for (const { kind, label, url } of pageRows(plan)) {
-    if (!out.has(kind)) out.set(kind, new Map());
-    if (!out.get(kind)!.has(label)) out.get(kind)!.set(label, url);
+  for (const plan of folderPlans(file)) {
+    const found = new Map<string, Map<string, string>>();
+    for (const { kind, label, url } of pageRows(plan)) {
+      if (out.has(kind)) continue;
+      if (!found.has(kind)) found.set(kind, new Map());
+      if (!found.get(kind)!.has(label)) found.get(kind)!.set(label, url);
+    }
+    for (const [kind, rows] of found) out.set(kind, rows);
   }
   return out;
 }
