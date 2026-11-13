@@ -63,11 +63,7 @@ function markdownFiles(dir: string): string[] {
   return cached(dir, 'dir', () => (existsSync(dir) ? readdirSync(dir).filter((n) => extname(n) === '.md').sort().map((n) => join(dir, n)) : []));
 }
 
-/**
- * The numbered rows of a body's tables, by kind and label. A row whose
- * anchor a heading of the body already has gets none of its own (see
- * rows.ts), and a reference to it lands on that heading.
- */
+/** The numbered rows of a body's tables, by kind and label. */
 export function tableRows(body: string): Map<string, Map<string, string>> {
   const rows = new Map<string, Map<string, string>>();
   const lines = body.split('\n');
@@ -162,7 +158,9 @@ export function folderQuestions(file: string): Map<string, string> {
 /**
  * The plan in a page's folder (PLAN.md, else a planning page of type plan),
  * and its numbered rows by kind, each on the part of a split plan that
- * holds its table.
+ * holds its table. A row whose anchor a heading of the plan already has
+ * gets no id of its own (see rows.ts), so a reference to it lands on that
+ * heading.
  */
 export function folderRows(file: string): Map<string, Map<string, string>> {
   let plan = siblingPages(file).get('PLAN');
@@ -177,7 +175,7 @@ export function folderRows(file: string): Map<string, Map<string, string>> {
     const parts = isSplit(data)
       ? pageParts(idFor(planFile, notesDir()), data, splitTitle(body).body)
       : [{ url, body: splitTitle(body).body }];
-    const taken = headingSlugs(body);
+    const taken = renderedAnchors(planFile);
     const out = new Map<string, Map<string, string>>();
     for (const part of parts) {
       for (const [kind, rows] of tableRows(part.body)) {
@@ -193,7 +191,16 @@ export function folderRows(file: string): Map<string, Map<string, string>> {
   });
 }
 
-/** The anchors of a body's headings, which a table row's anchor must not repeat. */
-export function headingSlugs(body: string): Set<string> {
-  return new Set(headings(splitTitle(body).body).map(({ slug }) => slug));
+/**
+ * The heading anchors a page renders, which a table row's anchor must not
+ * repeat: on a split page, those of its parts, whose own `# ` lines are
+ * page titles rather than headings.
+ */
+export function renderedAnchors(file: string): Set<string> {
+  return cached(file, 'anchors', () => {
+    const { data, body } = page(file);
+    const rest = splitTitle(body).body;
+    const anchors = isSplit(data) ? pageParts(idFor(file, notesDir()), data, rest).flatMap((part) => part.anchors) : headings(rest);
+    return new Set(anchors.map(({ slug }) => slug));
+  });
 }

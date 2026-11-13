@@ -26,12 +26,14 @@ time: a missing field or a missing section fails the build and names it.
 The Markdown fields link as the body does: "Q3", "SPEC 3.2", "PLAN.md §6",
 "Stage 1" and "decision 0011" become links. Each question's row has the
 anchor of its id (`#q3`), so any page in the handoff's folder can link to it
-by writing "Q3".
+by writing "Q3". On a handoff, "Q3" is its own question; when two handoffs
+share a folder, an id both of them ask links to neither from the folder's
+other pages.
 
 `blocks`, `answer` and `next_steps` were plain text before they were
 Markdown, so a `<` in them still shows as written: a placeholder such as
-&lt;id&gt; stays text rather than becoming an HTML tag. `question` takes raw HTML, as the body
-does.
+&lt;id&gt; stays text rather than becoming an HTML tag. A link written as
+`<https://...>` still links. `question` takes raw HTML, as the body does.
 
 ## Sections
 

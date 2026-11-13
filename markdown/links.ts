@@ -41,7 +41,7 @@ const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|#|\/)/i;
 const NUMBER = String.raw`\d+(?:\.\d+)*`;
 const LIST = String.raw`${NUMBER}(?:(?:,\s*|\s+and\s+|,\s*and\s+|\s+to\s+)${NUMBER})*`;
 /** "this stage 2 people" counts; "stage 2" after one of these words is not a reference. */
-const NOT_AFTER = String.raw`(?<!\b(?:this|that|these|those|each|every|any|which|what|one|same|next|last|early|later|final|current)\s)`;
+const NOT_AFTER = String.raw`(?<!\b(?:this|that|these|those|each|every|any|which|what)\s)`;
 const TASKS = new RegExp(String.raw`${NOT_AFTER}\b(Tasks?)(\s+)(${LIST})\b`, 'gi');
 const STAGES = new RegExp(String.raw`${NOT_AFTER}\b(Stages?)(\s+)(${LIST})\b`, 'gi');
 /** "Q3", but not a quarter: "Q1 2027", "2027 Q1". */
@@ -116,8 +116,9 @@ function pageRefs(value: string, pages: Map<string, Sibling>): Match[] {
   if (pages.size === 0) return [];
   const names = [...pages.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[-]/g, '\\$&'));
   const matches: Match[] = [];
-  // Not part of a path ("finance/PLAN.md") or a longer name ("SPEC-v2").
-  for (const m of value.matchAll(new RegExp(String.raw`(?<![\w/.-])(${names.join('|')})(\.md)?(?![\w-])`, 'g'))) {
+  // Not part of a path ("finance/PLAN.md", though "./PLAN.md" is this folder) or a longer name ("SPEC-v2", "PLAN.mdx").
+  const pattern = String.raw`(?:(?<![\w/.-])\.\/|(?<![\w/.-]))(${names.join('|')})(\.md)?(?![\w-]|\.\w)`;
+  for (const m of value.matchAll(new RegExp(pattern, 'g'))) {
     const page = pages.get(m[1])!;
     let end = m.index! + m[0].length;
     const section = PAGE_SECTION.exec(value.slice(end));
@@ -247,7 +248,9 @@ export function notesLinksPlugin(): MdastPluginEntry {
           ctx.setProperty(node, 'value', value);
         }
         if (!hasTargets(targets)) return;
-        for (let up = parent; up; up = ctx.parent(up as never)) if (up.type === 'link' || up.type === 'heading') return;
+        for (let up = parent; up; up = ctx.parent(up as never)) {
+          if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
+        }
         const nodes = autolink(value, targets);
         if (nodes) ctx.replaceNode(node, nodes);
       },

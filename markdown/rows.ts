@@ -7,11 +7,10 @@
  * table rows and cells. A row whose anchor a heading of the page already has
  * gets none, so the page keeps one element per id.
  */
-import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { HastPluginEntry } from 'satteri';
-import { readPage } from '../lib/notes';
-import { headingSlugs, isRowLabel, rowId, rowKind } from '../lib/references';
+import { notesDir } from '../lib/notes';
+import { isRowLabel, renderedAnchors, rowId, rowKind } from '../lib/references';
 
 interface Element {
   type: string;
@@ -32,7 +31,7 @@ function child(node: Element | undefined, tag: string): Element | undefined {
 export function rowAnchorsPlugin(): HastPluginEntry {
   return ({ fileURL }: { fileURL?: URL }) => {
     const file = fileURL ? fileURLToPath(fileURL) : undefined;
-    const used = file && existsSync(file) ? headingSlugs(readPage(file).body) : new Set<string>();
+    let used: Set<string> | undefined;
     return {
       name: 'violet-row-anchors',
       element: {
@@ -40,6 +39,8 @@ export function rowAnchorsPlugin(): HastPluginEntry {
         visit(table: Element, ctx: { setProperty(node: Element, key: string, value: string): void }) {
           const kind = rowKind(text(child(child(child(table, 'thead'), 'tr'), 'th')));
           if (!kind) return;
+          // Worked out on the first numbered table only, and cached per file.
+          used ??= new Set(file && file.startsWith(notesDir()) ? renderedAnchors(file) : []);
           for (const row of child(table, 'tbody')?.children?.filter((c) => c.tagName === 'tr') ?? []) {
             const label = text(child(row, 'td')).trim();
             if (!isRowLabel(label)) continue;
