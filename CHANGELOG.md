@@ -3,7 +3,7 @@
 ## Unreleased
 
 - References in a work folder link: "Q3" (and "Q3 to Q9") to that question on the folder's handoff; "SPEC", "PLAN.md §6 and §6.4", "SPEC 3.2", "SPEC section 7" and "SPEC principle 2" to that page and section, for any capitalised page of the folder except README.md; "task 1.2", "Stage 1" and "stages 6 and 7" to that row of the plan's numbered table, whose rows now get anchors (`#task-1-2`, `#stage-1`). "Task 3" also matches in lower case and with dotted numbers.
-- A handoff's `blocks`, `answer` and `next_steps` are rendered as Markdown, like `question`, so their references link. A `<` in them still shows as written, as it did when they were plain text.
+- A handoff's `blocks`, `answer` and `next_steps` are rendered as Markdown, like `question`, so their references link. Raw HTML in them still shows as written, as it did when they were plain text: the parser reads it as text for these fields, so a placeholder such as `<id>` is not lost. A custom kind's `render` can ask for the same with `inline(text, { html: false })`.
 - A handoff's next steps are numbered like Starlight's Steps (`sl-steps`); before, the list had a class no style matched.
 - A reference inside emphasis inside a link (`[the **SPEC**](SPEC.md)`), or anywhere inside a reference-style link (`[SPEC][spec]`), is no longer linked a second time; only text directly in an inline link was skipped before.
 - "Task 3" no longer links after "this", "that", "these", "those", "each", "every", "any", "which" or "what", so "run each Task 3 check twice" stays text. 0.2.2 linked it after any word.

@@ -59,55 +59,16 @@ export const handoffSchema = z.object({
  * `<` outside code spans as text, so a placeholder such as `<id>` shows
  * rather than becoming a tag; an autolink (`<https://...>`) stays a link.
  */
-const AUTOLINK = /^<[a-z][a-z0-9+.-]{1,31}:[^\s<>\x00-\x1f\x7f]*>/i;
-
-export function escapeTags(text: string): string {
-  let out = '';
-  let i = 0;
-  while (i < text.length) {
-    const char = text[i];
-    if (char === '\\') {
-      // A backslash escapes the next character, a backtick included.
-      out += text.slice(i, i + 2);
-      i += 2;
-    } else if (char === '`') {
-      // A run of backticks opens a code span only when a run of the same length closes it, as in CommonMark.
-      let run = i;
-      while (text[run] === '`') run++;
-      const fence = text.slice(i, run);
-      let close = text.indexOf(fence, run);
-      while (close !== -1 && (text[close - 1] === '`' || text[close + fence.length] === '`')) {
-        let after = close;
-        while (text[after] === '`') after++;
-        close = text.indexOf(fence, after);
-      }
-      const stop = close === -1 ? run : close + fence.length;
-      out += text.slice(i, stop);
-      i = stop;
-    } else if (char === '<') {
-      // An autolink (`<https://...>`, as CommonMark defines it) stays a link, taken whole so a
-      // backtick in it opens no code span; any other `<` is text.
-      const autolink = AUTOLINK.exec(text.slice(i))?.[0];
-      out += autolink ?? '&lt;';
-      i += autolink?.length ?? 1;
-    } else {
-      out += char;
-      i++;
-    }
-  }
-  return out;
-}
-
 /**
  * Render the inline-Markdown fields to HTML in place, so their references
  * link as the body's do. `blocks`, `answer` and `next_steps` were plain text
  * before they were Markdown, so raw HTML in them stays text.
  */
-export async function renderHandoff(data: z.infer<typeof handoffSchema>, inline: (text: string) => Promise<string>) {
+export async function renderHandoff(data: z.infer<typeof handoffSchema>, inline: (text: string, options?: { html?: boolean }) => Promise<string>) {
   for (const question of data.open_questions) {
     question.question = await inline(question.question);
-    if (question.blocks) question.blocks = await inline(escapeTags(question.blocks));
-    if (question.answer) question.answer = await inline(escapeTags(question.answer));
+    if (question.blocks) question.blocks = await inline(question.blocks, { html: false });
+    if (question.answer) question.answer = await inline(question.answer, { html: false });
   }
-  data.next_steps = await Promise.all(data.next_steps.map((step) => inline(escapeTags(step))));
+  data.next_steps = await Promise.all(data.next_steps.map((step) => inline(step, { html: false })));
 }

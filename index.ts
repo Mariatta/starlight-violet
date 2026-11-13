@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { listMarkdown, sections, sidebarItems, words } from './lib/notes';
 import { notesLinksPlugin } from './markdown/links';
 import { rowAnchorsPlugin } from './markdown/rows';
+import { plainHtmlPlugin } from './markdown/plain';
 import { stepsPlugin } from './markdown/steps';
 import { shortcodesPlugin } from './markdown/shortcodes';
 import {
@@ -218,7 +219,7 @@ export default function violet(options: VioletOptions): StarlightPlugin {
               if (!isSatteriProcessor(processor)) {
                 throw new Error(`${PACKAGE} needs Astro's Sätteri Markdown processor; this site uses "${processor.name}".`);
               }
-              processor.options.mdastPlugins.push(stepsPlugin(), shortcodesPlugin(), notesLinksPlugin(), ...resolved.mdastPlugins);
+              processor.options.mdastPlugins.push(plainHtmlPlugin(), stepsPlugin(), shortcodesPlugin(), notesLinksPlugin(), ...resolved.mdastPlugins);
               processor.options.hastPlugins.push(rowAnchorsPlugin());
               processor.options.features.directive = true;
               if (resolved.kinds.includes('decision')) {

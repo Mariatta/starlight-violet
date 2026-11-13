@@ -16,6 +16,7 @@ import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
 import { idFor, isSkipped, LANDING, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { headings, isSplit, pageParts, readPlan, type Plan } from './plans';
+import { PLAIN_HTML } from '../markdown/plain';
 
 /** Violet's guide pages are filed under this folder. */
 export const GUIDE = 'guide';
@@ -197,8 +198,10 @@ export function notesLoader(): Loader {
             const parsed = await parseData({ id, data, filePath: shown });
             const kind = getKind(parsed.kind);
             if (kind?.render) {
-              const inline = async (text: string) => {
-                const { html } = await renderMarkdown(text, { fileURL });
+              const inline = async (text: string, options?: { html?: boolean }) => {
+                const url = new URL(fileURL);
+                if (options?.html === false) url.hash = PLAIN_HTML;
+                const { html } = await renderMarkdown(text, { fileURL: url });
                 return html.replace(/^<p>|<\/p>\s*$/g, '');
               };
               await kind.render(parsed, inline);
