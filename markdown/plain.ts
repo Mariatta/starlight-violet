@@ -42,7 +42,11 @@ export async function renderPlain(text: string, render: (source: string) => Prom
   const id = plainRenders.next++;
   plainRenders.open.add(id);
   try {
-    return await render(`${text}\n\n<!--violet-plain:${id}-->\n`);
+    const html = await render(`${text}\n\n<!--violet-plain:${id}-->\n`);
+    // The mark is removed in the tree; a text ending inside an HTML block that
+    // only its own terminator closes (<!--, <pre>, <script>) swallows it, so
+    // whatever is left of it goes here too.
+    return html.replace(new RegExp(String.raw`\s*(?:<|&lt;)!--violet-plain:${id}--(?:>|&gt;)\s*`, 'g'), '').trim();
   } finally {
     plainRenders.open.delete(id);
   }
@@ -68,6 +72,9 @@ const INLINE = new Set([
  * as its source.
  */
 function flatten(node: Node, source: string): Node[] {
+  // Raw HTML is text here: made so now, not left to the html visitor, since
+  // the block it came from is removed once its content is moved.
+  if (node.type === 'html') return [{ type: 'text', value: withoutMark(String(node.value)) }];
   if (INLINE.has(node.type)) return [node];
   const start = node.position?.start.offset;
   const end = node.position?.end.offset;
@@ -84,6 +91,11 @@ function flatten(node: Node, source: string): Node[] {
   }
   if (end > cursor) out.push({ type: 'text', value: source.slice(cursor, end) });
   return out;
+}
+
+/** An HTML block's value without the mark it swallowed, when the text ended inside it. */
+function withoutMark(value: string): string {
+  return value.replace(/\s*<!--violet-plain:\d+-->\s*$/, '');
 }
 
 export function plainHtmlPlugin(): MdastPluginEntry {
@@ -106,7 +118,7 @@ export function plainHtmlPlugin(): MdastPluginEntry {
         for (const block of root.children.slice(1, blocks.length)) ctx.removeNode(block);
       },
       html(node, ctx) {
-        ctx.replaceNode(node, { type: 'text', value: node.value });
+        ctx.replaceNode(node, { type: 'text', value: withoutMark(node.value) });
       },
     };
   };
