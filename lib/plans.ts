@@ -137,7 +137,9 @@ export function headings(body: string): Heading[] {
 export function sectionHeadings(body: string): string[] {
   return (parse(body).children as { type: string; depth?: number }[])
     .filter((node) => node.type === 'heading' && node.depth === 2)
-    .map((node) => textOf(node as never, body).trim());
+    .map((node) => textOf(node as never, body).trim())
+    // An empty ## is no section, as it has no anchor either.
+    .filter(Boolean);
 }
 
 function plain(text: string): string {
