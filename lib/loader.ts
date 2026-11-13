@@ -248,6 +248,7 @@ export function notesLoader(): Loader {
         for (const page of options.extraPages?.pages() ?? []) {
           const file = join(options.notesDir, page.rel);
           const id = idFor(file, options.notesDir).replace(/\/index$/, '');
+          if (taken.has(id) && id === 'index') throw new Error(`${taken.get(id)} and the generated ${page.rel} are both a landing page; keep one`);
           if (taken.has(id)) {
             throw new Error(`${taken.get(id)} takes the address /${id}/, which the generated ${page.rel} needs; rename one of them`);
           }
