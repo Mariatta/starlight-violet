@@ -60,16 +60,35 @@ export const handoffSchema = z.object({
  * rather than becoming a tag; an autolink (`<https://...>`) stays a link.
  */
 export function escapeTags(text: string): string {
-  // A code span closes on a run of as many backticks as opened it, as in CommonMark.
-  const spans = /(?:(?<=\\`)|(?<![\\`]))(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g;
-  const tags = (part: string) => part.replace(/<(?![a-z][a-z0-9+.-]*:[^\s>]*>)/gi, '&lt;');
   let out = '';
-  let cursor = 0;
-  for (const m of text.matchAll(spans)) {
-    out += tags(text.slice(cursor, m.index)) + m[0];
-    cursor = m.index! + m[0].length;
+  let i = 0;
+  while (i < text.length) {
+    const char = text[i];
+    if (char === '\\') {
+      // A backslash escapes the next character, a backtick included.
+      out += text.slice(i, i + 2);
+      i += 2;
+    } else if (char === '`') {
+      // A run of backticks opens a code span only when a run of the same length closes it, as in CommonMark.
+      let run = i;
+      while (text[run] === '`') run++;
+      const fence = text.slice(i, run);
+      let close = text.indexOf(fence, run);
+      while (close !== -1 && (text[close - 1] === '`' || text[close + fence.length] === '`')) {
+        let after = close;
+        while (text[after] === '`') after++;
+        close = text.indexOf(fence, after);
+      }
+      const stop = close === -1 ? run : close + fence.length;
+      out += text.slice(i, stop);
+      i = stop;
+    } else {
+      // An autolink (`<https://...>`) stays a link; any other `<` is text.
+      out += char === '<' && !/^<[a-z][a-z0-9+.-]*:[^\s>]*>/i.test(text.slice(i)) ? '&lt;' : char;
+      i++;
+    }
   }
-  return out + tags(text.slice(cursor));
+  return out;
 }
 
 /**
