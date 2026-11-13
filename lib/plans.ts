@@ -4,10 +4,11 @@
  * `# PR 2: ...`) so a reference can link straight to it. Shared by the
  * loader's checks, the shortcodes, the inline directives and the auto-links.
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Slugger from 'github-slugger';
 import { idFor, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
+import { cached, fencedLines } from './source';
 
 export interface PlanTask {
   number: number;
@@ -69,16 +70,10 @@ export function pageParts(id: string, data: Record<string, unknown>, body: strin
   const url = pageUrl(id);
   if (!isSplit(data)) return [{ id, url, body, anchors: headings(body) }];
   const lines = body.split('\n');
+  const code = fencedLines(lines);
   const starts: { line: number; text: string }[] = [];
-  let fence: string | undefined;
   lines.forEach((line, index) => {
-    const marker = FENCE.exec(line)?.[1];
-    if (marker) {
-      if (!fence) fence = marker;
-      else if (marker === fence) fence = undefined;
-      return;
-    }
-    const match = !fence && /^#\s+(.+?)\s*#*\s*$/.exec(line);
+    const match = !code[index] && /^#\s+(.+?)\s*#*\s*$/.exec(line);
     if (match) starts.push({ line: index, text: match[1] });
   });
   const slugger = new Slugger();
@@ -97,27 +92,21 @@ export function pageParts(id: string, data: Record<string, unknown>, body: strin
 /** Where an anchor of a page lives: in a split page, the part with that heading. */
 export function anchorUrl(file: string, hash: string): string | undefined {
   if (!existsSync(file)) return;
-  const mtime = statSync(file).mtimeMs;
-  let cached = anchorCache.get(file);
-  if (cached?.mtime !== mtime) {
+  const anchors = cached(file, 'part-anchors', () => {
     const { data, body } = readPage(file);
-    const anchors = new Map<string, string>();
+    const found = new Map<string, string>();
     if (isSplit(data)) {
       for (const part of pageParts(idFor(file, notesDir()), data, splitTitle(body).body)) {
-        for (const { slug } of part.anchors) if (!anchors.has(slug)) anchors.set(slug, `${part.url}#${slug}`);
+        for (const { slug } of part.anchors) if (!found.has(slug)) found.set(slug, `${part.url}#${slug}`);
       }
     }
-    cached = { mtime, anchors };
-    anchorCache.set(file, cached);
-  }
-  return cached.anchors.get(hash);
+    return found;
+  });
+  return anchors.get(hash);
 }
-
-const anchorCache = new Map<string, { mtime: number; anchors: Map<string, string> }>();
 
 const TASK_HEADING = /^task\s+(\d+)\b[:.\s-]*(.*)$/i;
 const PR_HEADING = /^pr\s+(\d+)\b[:.\s-]*(.*)$/i;
-const FENCE = /^\s*(```|~~~)/;
 
 interface Heading {
   depth: number;
@@ -129,15 +118,10 @@ interface Heading {
 export function headings(body: string): Heading[] {
   const slugger = new Slugger();
   const found: Heading[] = [];
-  let fence: string | undefined;
-  for (const line of body.split('\n')) {
-    const marker = FENCE.exec(line)?.[1];
-    if (marker) {
-      if (!fence) fence = marker;
-      else if (marker === fence) fence = undefined;
-      continue;
-    }
-    if (fence) continue;
+  const lines = body.split('\n');
+  const code = fencedLines(lines);
+  for (const [index, line] of lines.entries()) {
+    if (code[index]) continue;
     const match = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
     if (match) found.push({ depth: match[1].length, text: match[2], slug: slugger.slug(match[2]) });
   }

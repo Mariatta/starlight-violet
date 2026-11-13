@@ -31,9 +31,13 @@ share a folder, an id both of them ask links to neither from the folder's
 other pages.
 
 `blocks`, `answer` and `next_steps` were plain text before they were
-Markdown, so a `<` in them still shows as written: a placeholder such as
-&lt;id&gt; stays text rather than becoming an HTML tag. A link written as
-`<https://...>` still links. `question` takes raw HTML, as the body does.
+Markdown, so they take inline Markdown only. A `<` in them shows as
+written: a placeholder such as &lt;id&gt; stays text rather than becoming
+an HTML tag, while a link written as `<https://...>` still links. A line
+that starts like a list, heading or quote stays a line of text, so a step
+written "1. Run the tests" is not a list inside the step, and blank lines
+are joined. Emphasis, code, links and references work as in the body.
+`question` takes raw HTML, as the body does.
 
 ## Sections
 
