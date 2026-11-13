@@ -223,18 +223,20 @@ function autolink(value: string, targets: Targets): PhrasingContent[] | undefine
 function rawAnchorSpans(root: any): [number, number][] {
   const spans: [number, number][] = [];
   let openedAt: number | undefined;
+  // How far into the source the walk has read: where a node another plugin
+  // made, with no position (a shortcode's HTML), sits.
+  let read = 0;
   const walk = (node: any) => {
+    read = Math.max(read, node.position?.start.offset ?? read);
     if (node.type === 'html') {
+      const here = node.position?.end.offset ?? read;
       const tags = node.value.replace(/<!--[\s\S]*?-->/g, '');
       for (const [tag] of tags.matchAll(/<a[\s>]|<\/a\s*>/gi)) {
-        if (tag.startsWith('</')) {
-          if (openedAt !== undefined) spans.push([openedAt, node.position?.end.offset ?? openedAt]);
-          openedAt = undefined;
-        } else openedAt ??= node.position?.end.offset ?? 0;
+        if (openedAt !== undefined) spans.push([openedAt, here]);
+        openedAt = tag.startsWith('</') ? undefined : here;
       }
-      return;
-    }
-    for (const child of node.children ?? []) walk(child);
+    } else for (const child of node.children ?? []) walk(child);
+    read = Math.max(read, node.position?.end.offset ?? read);
   };
   walk(root);
   if (openedAt !== undefined) spans.push([openedAt, Infinity]);
@@ -307,12 +309,16 @@ export function notesLinksPlugin(): MdastPluginEntry {
           if (!value) return ctx.removeNode(node);
           ctx.setProperty(node, 'value', value);
         }
-        // Not inside a link, Markdown or raw HTML, nor a heading.
+        // Not inside a link, Markdown or raw HTML, nor a heading. Text another
+        // plugin made (a step's title) has no position; its nearest ancestor's
+        // below the root stands in, and when none has one on a page with raw
+        // anchors, where it sits is unknown, so it is left as text.
+        let at: number | undefined = (node as any).position?.start.offset;
         for (let up: any = parent; up; up = ctx.parent(up as never)) {
           if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
+          if (up.type !== 'root') at ??= up.position?.start.offset;
         }
-        const at = (node as any).position?.start.offset;
-        if (at !== undefined && anchored.some(([from, to]) => at >= from && at < to)) return;
+        if (anchored.length > 0 && (at === undefined || anchored.some(([from, to]) => at >= from && at < to))) return;
         const nodes = autolink(value, targets);
         if (nodes) ctx.replaceNode(node, nodes);
       },
