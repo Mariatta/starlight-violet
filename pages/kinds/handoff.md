@@ -20,8 +20,24 @@ time: a missing field or a missing section fails the build and names it.
 | `status` | yes | `draft`, `ready`, `picked-up` or `done` |
 | `decisions` | no | Four-digit numbers of the decisions it rests on |
 | `inputs` | yes | Files or folders to read, in reading order |
-| `open_questions` | no | `id`, `question` (Markdown allowed), `blocks` (what waits on it), `owner` (default: Violet's `owner` option), `answer` (empty until answered) |
-| `next_steps` | yes | What the receiving agent does, in order |
+| `open_questions` | no | `id`, `question`, `blocks` (what waits on it), `owner` (default: Violet's `owner` option), `answer` (empty until answered); `question`, `blocks` and `answer` are Markdown |
+| `next_steps` | yes | What the receiving agent does, in order; Markdown |
+
+The Markdown fields link as the body does: "Q3", "SPEC 3.2", "PLAN.md §6",
+"Stage 1" and "decision 0011" become links. Each question's row has the
+anchor of its id (`#q3`), so any page in the handoff's folder can link to it
+by writing "Q3". On a handoff, "Q3" is its own question; when two handoffs
+share a folder, an id both of them ask links to neither from the folder's
+other pages.
+
+`blocks`, `answer` and `next_steps` were plain text before they were
+Markdown, so they take inline Markdown only. A `<` in them shows as
+written: a placeholder such as &lt;id&gt; stays text rather than becoming
+an HTML tag, while a link written as `<https://...>` still links. Whatever
+would make a block (a list, heading, quote, code block or table) stays on
+the line as written, so a step written "1. Run the tests" is not a list
+inside the step. Emphasis, code, links and references work as in the body.
+`question` takes raw HTML, as the body does.
 
 ## Sections
 

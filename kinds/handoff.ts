@@ -1,5 +1,6 @@
 /** The handoff kind: a document one agent writes so another can pick up. */
 import { z } from 'astro/zod';
+import type { Inline } from '../options';
 
 /** The level-two headings every handoff body has, exactly and in this order. */
 export const HANDOFF_SECTIONS = [
@@ -44,18 +45,27 @@ export const handoffSchema = z.object({
       z.object({
         id: z.string(),
         question: z.string().describe('Inline Markdown; the loader renders it'),
-        blocks: z.string().optional(),
+        blocks: z.string().optional().describe('Inline Markdown; the loader renders it'),
         owner: z.string().optional().describe("Defaults to Violet's `owner` option"),
-        answer: z.string().nullable().default(null),
+        answer: z.string().nullable().default(null).describe('Inline Markdown; the loader renders it'),
       }),
     )
     .default([]),
-  next_steps: z.array(z.string()).min(1),
+  next_steps: z.array(z.string()).min(1).describe('Inline Markdown; the loader renders each'),
   /** The page's path in the notes repo, filled in by the loader for error messages. */
   source: z.string().optional(),
 });
 
-/** Render the inline-Markdown fields to HTML in place. */
-export async function renderHandoff(data: z.infer<typeof handoffSchema>, inline: (text: string) => Promise<string>) {
-  for (const question of data.open_questions) question.question = await inline(question.question);
+/**
+ * Render the inline-Markdown fields to HTML in place, so their references
+ * link as the body's do. `blocks`, `answer` and `next_steps` were plain text
+ * before they were Markdown, so raw HTML in them stays text.
+ */
+export async function renderHandoff(data: z.infer<typeof handoffSchema>, inline: Inline) {
+  for (const question of data.open_questions) {
+    question.question = await inline(question.question);
+    if (question.blocks) question.blocks = await inline(question.blocks, { html: false });
+    if (question.answer) question.answer = await inline(question.answer, { html: false });
+  }
+  data.next_steps = await Promise.all(data.next_steps.map((step) => inline(step, { html: false })));
 }

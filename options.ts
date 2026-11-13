@@ -29,8 +29,11 @@ export interface CustomKind {
   /** A component for the page's header, relative to the site's root; default: Violet's header for status, dates, issues and related. */
   header?: string;
   /** Render inline-Markdown fields of validated data to HTML, in place. */
-  render?: (data: any, inline: (text: string) => Promise<string>) => Promise<void>;
+  render?: (data: any, inline: Inline) => Promise<void>;
 }
+
+/** Render inline Markdown to HTML; with `{ html: false }`, raw HTML in it shows as text and blocks stay on the line as written. */
+export type Inline = (text: string, options?: { html?: boolean }) => Promise<string>;
 
 /** A page the site makes from something other than a Markdown file, such as a design specimen. */
 export interface ExtraPage {

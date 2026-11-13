@@ -92,15 +92,21 @@ elsewhere.
 | `:task[3]` | A link "Task 3" to that task's heading in the plan |
 | `:pr[2]` | A link "PR 2" to that PR's heading |
 | `:task[3]{topic=export-screen}` | The same, for another folder's plan |
-| Task 3, Tasks 6, 7, Tasks 1 to 5 | In a plan, or a page in its folder, each number links to its task |
+| Task 3, Tasks 6, 7, Tasks 1 to 5 | In a plan, or a page in its folder, each number links to its task. Not after "this", "each", "every" and the like, so "each task 3 times" stays text |
+| task 1.2, Stage 1, stages 6 and 7 | In a plan's folder, each number links to that row of the plan's table whose first column is `#` or `Task` (tasks) or `Stage`; the rows get anchors such as `#task-1-2` and `#stage-1`. Not after "this", "each", "every" and the like, nor before a count or length of time, so "at this stage 2 people help" and "stage 2 days later" stay text. The plan is the folder's one plan, the same one task links use |
+| Q3, Q3 to Q9, q3 | In a folder with a handoff, each id links to that question's row on the handoff, in any case; on a handoff, to its own question. A year next to it ("Q1 2027") makes it a quarter, not a link |
+| SPEC, PLAN.md §6 and §6.4, SPEC 3.2, SPEC section 7, SPEC principle 2 | A page of the same folder with a capitalised file name (`SPEC.md`, `PLAN.md`; not `README.md`), and the section whose heading starts with that number; "principle N" is the Principles section. A name of under four letters (`UI.md`) links only as `UI.md` or with a section, and a name inside a path (`finance/PLAN.md`) does not link, though `./PLAN.md` does |
 | decision 0011, decisions 0001, 0002 and 0019 | With the decision kind on, each number links to its decision |
 | `[HTML](mockup.html){ target=_blank }` | The link with those attributes: here, opening in a new tab. `.class`, `#id` and `key=value` work, as in Python-Markdown and kramdown |
 
 A `:task` or `:pr` with a number the plan does not have fails the build.
-Prose that names a number the plan lacks stays plain text. Text inside
-headings, links and code is left alone. A relative link to another Markdown
-file in the notes becomes that page's address; when the site serves the
-notes' other files, a relative link to one of them opens the file.
+Prose that names a number, question or section the folder lacks stays plain
+text, or links to the page alone, and so does a page the site skips. Text inside headings, links and code is
+left alone. A table whose first column is `Step` or `Phase` gets row
+anchors too (`#step-2`), for links you write yourself. A relative link to
+another Markdown file in the notes becomes that page's address; when the
+site serves the notes' other files, a relative link to one of them opens
+the file.
 
 ## Steps
 

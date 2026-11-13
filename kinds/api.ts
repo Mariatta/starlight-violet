@@ -17,7 +17,7 @@ import type { CustomKind } from '../options';
 
 export { commonFields, DAY, ISSUE, issueItem, relatedItem, renderCommon } from './common';
 export { progressBar, statusBadge, statusLabel, statusVariant } from './index';
-export type { BadgeVariant, CustomKind } from '../options';
+export type { BadgeVariant, CustomKind, Inline } from '../options';
 
 /** Returns the kind unchanged; it only gives the definition its type. */
 export function defineKind(kind: CustomKind): CustomKind {

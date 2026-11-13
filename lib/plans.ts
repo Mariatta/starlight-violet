@@ -4,10 +4,11 @@
  * `# PR 2: ...`) so a reference can link straight to it. Shared by the
  * loader's checks, the shortcodes, the inline directives and the auto-links.
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Slugger from 'github-slugger';
-import { idFor, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
+import { idFor, isSkipped, LANDING, notesDir, notesRel, pageUrl, readKind, readPage, splitTitle } from './notes';
+import { cached, nodesOf, parse, textOf } from './source';
 
 export interface PlanTask {
   number: number;
@@ -69,23 +70,18 @@ export function pageParts(id: string, data: Record<string, unknown>, body: strin
   const url = pageUrl(id);
   if (!isSplit(data)) return [{ id, url, body, anchors: headings(body) }];
   const lines = body.split('\n');
-  const starts: { line: number; text: string }[] = [];
-  let fence: string | undefined;
-  lines.forEach((line, index) => {
-    const marker = FENCE.exec(line)?.[1];
-    if (marker) {
-      if (!fence) fence = marker;
-      else if (marker === fence) fence = undefined;
-      return;
-    }
-    const match = !fence && /^#\s+(.+?)\s*#*\s*$/.exec(line);
-    if (match) starts.push({ line: index, text: match[1] });
-  });
+  // Each part starts at a top-level # heading with text, as the parser reads
+  // the body; its body starts after the heading's last line (a setext
+  // heading's === underline included).
+  const starts = (parse(body).children as { type: string; depth?: number; position?: { start: { line: number }; end: { line: number } } }[])
+    .filter((node) => node.type === 'heading' && node.depth === 1 && node.position)
+    .map((node) => ({ line: node.position!.start.line - 1, after: node.position!.end.line, text: textOf(node as never, body).trim() }))
+    .filter(({ text }) => text);
   const slugger = new Slugger();
   const overview = lines.slice(0, starts[0]?.line ?? lines.length).join('\n');
   const parts: Part[] = [{ id, url, body: overview, anchors: headings(overview) }];
-  starts.forEach(({ line, text }, index) => {
-    const partBody = lines.slice(line + 1, starts[index + 1]?.line ?? lines.length).join('\n');
+  starts.forEach(({ after, text }, index) => {
+    const partBody = lines.slice(after, starts[index + 1]?.line ?? lines.length).join('\n');
     const pr = PR_HEADING.exec(text);
     const slug = pr ? `pr-${pr[1]}` : slugger.slug(plain(text));
     const partId = `${id}/${slug}`;
@@ -97,27 +93,21 @@ export function pageParts(id: string, data: Record<string, unknown>, body: strin
 /** Where an anchor of a page lives: in a split page, the part with that heading. */
 export function anchorUrl(file: string, hash: string): string | undefined {
   if (!existsSync(file)) return;
-  const mtime = statSync(file).mtimeMs;
-  let cached = anchorCache.get(file);
-  if (cached?.mtime !== mtime) {
+  const anchors = cached(file, 'part-anchors', () => {
     const { data, body } = readPage(file);
-    const anchors = new Map<string, string>();
+    const found = new Map<string, string>();
     if (isSplit(data)) {
       for (const part of pageParts(idFor(file, notesDir()), data, splitTitle(body).body)) {
-        for (const { slug } of part.anchors) if (!anchors.has(slug)) anchors.set(slug, `${part.url}#${slug}`);
+        for (const { slug } of part.anchors) if (!found.has(slug)) found.set(slug, `${part.url}#${slug}`);
       }
     }
-    cached = { mtime, anchors };
-    anchorCache.set(file, cached);
-  }
-  return cached.anchors.get(hash);
+    return found;
+  });
+  return anchors.get(hash);
 }
-
-const anchorCache = new Map<string, { mtime: number; anchors: Map<string, string> }>();
 
 const TASK_HEADING = /^task\s+(\d+)\b[:.\s-]*(.*)$/i;
 const PR_HEADING = /^pr\s+(\d+)\b[:.\s-]*(.*)$/i;
-const FENCE = /^\s*(```|~~~)/;
 
 interface Heading {
   depth: number;
@@ -125,23 +115,31 @@ interface Heading {
   slug: string;
 }
 
-/** The body's headings with the anchors the renderer gives them; fenced code is skipped. */
+/**
+ * The body's headings with the anchors the renderer gives them, in document
+ * order, as the site's parser reads the body: `#` and setext headings, at
+ * any depth of nesting. The text is the heading's as it reads, without raw
+ * HTML tags. A heading with no text gets no anchor.
+ */
 export function headings(body: string): Heading[] {
   const slugger = new Slugger();
-  const found: Heading[] = [];
-  let fence: string | undefined;
-  for (const line of body.split('\n')) {
-    const marker = FENCE.exec(line)?.[1];
-    if (marker) {
-      if (!fence) fence = marker;
-      else if (marker === fence) fence = undefined;
-      continue;
-    }
-    if (fence) continue;
-    const match = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
-    if (match) found.push({ depth: match[1].length, text: match[2], slug: slugger.slug(match[2]) });
-  }
-  return found;
+  return nodesOf<{ type: string; depth: number; children: unknown[] }>(parse(body), 'heading')
+    .map((node) => ({ depth: node.depth, text: textOf(node as never, body).trim() }))
+    .filter(({ text }) => text)
+    .map(({ depth, text }) => ({ depth, text, slug: slugger.slug(text) }));
+}
+
+/**
+ * The page's own sections: its level-two headings at the top level of the
+ * body, not ones inside a quote, list item or directive, which belong to
+ * that block. What a kind's `sections` rule checks.
+ */
+export function sectionHeadings(body: string): string[] {
+  return (parse(body).children as { type: string; depth?: number }[])
+    .filter((node) => node.type === 'heading' && node.depth === 2)
+    .map((node) => textOf(node as never, body).trim())
+    // An empty ## is no section, as it has no anchor either.
+    .filter(Boolean);
 }
 
 function plain(text: string): string {
@@ -275,6 +273,9 @@ function planInFolder(folder: string): Plan | undefined {
   if (!existsSync(folder)) return;
   for (const entry of readdirSync(folder).sort()) {
     if (!entry.endsWith('.md')) continue;
+    // A page the site leaves out is no one's plan.
+    const rel = notesRel(join(folder, entry));
+    if (isSkipped(rel) || rel === LANDING) continue;
     const plan = readPlan(join(folder, entry));
     if (plan) return plan;
   }

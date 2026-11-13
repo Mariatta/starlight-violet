@@ -41,9 +41,9 @@ const decisionUrls = new Map(readDecisions().map((d) => [d.number, d.url]));
           <tr id={q.id.toLowerCase()} class={q.answer ? 'answered' : 'open'}>
             <td><code>{q.id}</code></td>
             <td set:html={q.question} />
-            <td>{q.blocks}</td>
+            <td set:html={q.blocks ?? ''} />
             <td>{q.owner ?? getOptions().owner ?? ''}</td>
-            <td>{q.answer ?? <em>open</em>}</td>
+            {q.answer ? <td set:html={q.answer} /> : <td><em>open</em></td>}
           </tr>
         ))}
       </tbody>
@@ -51,5 +51,5 @@ const decisionUrls = new Map(readDecisions().map((d) => [d.number, d.url]));
   )}
 
   <h2 id="next-steps">Next steps</h2>
-  <ol class="steps">{data.next_steps.map((s) => <li>{s}</li>)}</ol>
+  <ol class="sl-steps" role="list">{data.next_steps.map((s) => <li><p set:html={s} /></li>)}</ol>
 </div>

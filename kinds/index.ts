@@ -4,13 +4,12 @@
  * site turns kinds on with the `kinds` option; a page may only declare one
  * that is on.
  */
-import { getOptions, type BadgeVariant, type KindName } from '../options';
+import { getOptions, type BadgeVariant, type Inline, type KindName } from '../options';
 import { DECISION_SECTIONS, DECISION_VARIANT, decisionSchema, renderDecision } from './decision';
 import { HANDOFF_SECTIONS, handoffSchema, renderHandoff, STATUS_VARIANT as HANDOFF_VARIANT } from './handoff';
 import { planningSchema, PLANNING_VARIANT, renderPlanning, WORK_VARIANT } from './planning';
 import { referenceSchema, REFERENCE_VARIANT, renderReference } from './reference';
 
-type Inline = (text: string) => Promise<string>;
 export type { BadgeVariant };
 
 export interface Kind {

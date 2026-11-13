@@ -12,6 +12,9 @@ import { relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listMarkdown, sections, sidebarItems, words } from './lib/notes';
 import { notesLinksPlugin } from './markdown/links';
+import { rowAnchorsPlugin } from './markdown/rows';
+import { plainHtmlPlugin } from './markdown/plain';
+import { setParseFeatures } from './lib/source';
 import { stepsPlugin } from './markdown/steps';
 import { shortcodesPlugin } from './markdown/shortcodes';
 import {
@@ -217,8 +220,15 @@ export default function violet(options: VioletOptions): StarlightPlugin {
               if (!isSatteriProcessor(processor)) {
                 throw new Error(`${PACKAGE} needs Astro's Sätteri Markdown processor; this site uses "${processor.name}".`);
               }
-              processor.options.mdastPlugins.push(stepsPlugin(), shortcodesPlugin(), notesLinksPlugin(), ...resolved.mdastPlugins);
+              processor.options.mdastPlugins.push(plainHtmlPlugin(), stepsPlugin(), shortcodesPlugin(), notesLinksPlugin(), ...resolved.mdastPlugins);
+              processor.options.hastPlugins.push(rowAnchorsPlugin());
               processor.options.features.directive = true;
+              // Headings, tables and plan parts are read with the same parser and features the pages render with.
+              setParseFeatures({
+                gfm: astroSetupConfig.markdown.gfm !== false,
+                smartPunctuation: astroSetupConfig.markdown.smartypants !== false,
+                ...processor.options.features,
+              });
               if (resolved.kinds.includes('decision')) {
                 injectRoute({ pattern: '/decisions', entrypoint: `${PACKAGE}/routes/decisions.astro`, prerender: true });
               }
