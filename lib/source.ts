@@ -33,6 +33,8 @@ export function fencedLines(lines: readonly string[]): boolean[] {
 }
 
 const memo = new Map<string, { mtime: number; value: unknown }>();
+/** Entries kept at most; the least recently used goes first, so a long dev session does not grow it forever. */
+const LIMIT = 2000;
 
 /**
  * A value worked out from a file or folder, worked out again only when its
@@ -41,9 +43,15 @@ const memo = new Map<string, { mtime: number; value: unknown }>();
  */
 export function cached<T>(path: string, key: string, compute: () => T): T {
   const mtime = existsSync(path) ? statSync(path).mtimeMs : -1;
-  const hit = memo.get(`${key}:${path}`);
-  if (hit && hit.mtime === mtime) return hit.value as T;
+  const id = `${key}:${path}`;
+  const hit = memo.get(id);
+  memo.delete(id);
+  if (hit && hit.mtime === mtime) {
+    memo.set(id, hit);
+    return hit.value as T;
+  }
   const value = compute();
-  memo.set(`${key}:${path}`, { mtime, value });
+  memo.set(id, { mtime, value });
+  if (memo.size > LIMIT) memo.delete(memo.keys().next().value!);
   return value;
 }

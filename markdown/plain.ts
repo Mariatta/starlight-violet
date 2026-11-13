@@ -10,16 +10,23 @@
  * quote's second line, is gone, as the parser read it.
  *
  * Everything is decided by the parser, not by guessing over the text. The
- * loader marks such a render by registering its source (`renderPlain`), and
- * the plugin factory, which Sätteri hands the source, checks the register;
- * nothing else about the render changes.
+ * loader marks such a render (`renderPlain`) with a comment of its own at
+ * the end of the source, `<!--violet-plain:N-->`, whose number it
+ * registers; the plugin factory, which Sätteri hands the source, looks for
+ * a registered one, and the plugin removes the comment before anything
+ * renders. A normal render of the same text carries no mark, so it is not
+ * affected.
  */
 import type { MdastPluginEntry } from 'satteri';
 
 // Astro loads the config (which registers the plugin) and the content loader
 // as separate module instances, so the register lives on the global object.
-const REGISTER = Symbol.for('starlight-violet.plain-sources');
-const plainSources: Map<string, number> = ((globalThis as Record<symbol, unknown>)[REGISTER] ??= new Map()) as Map<string, number>;
+const REGISTER = Symbol.for('starlight-violet.plain-renders');
+const plainRenders: { next: number; open: Set<number> } = ((globalThis as Record<symbol, unknown>)[REGISTER] ??= { next: 0, open: new Set() }) as {
+  next: number;
+  open: Set<number>;
+};
+const MARK = /\n\n<!--violet-plain:(\d+)-->\n?$/;
 
 /**
  * A fragment Astro would take for front matter (`---` or `+++` at its start,
@@ -32,13 +39,12 @@ export function notFrontMatter(text: string): string {
 
 /** Run `render` on `text` as one line of inline Markdown, with raw HTML read as text. */
 export async function renderPlain(text: string, render: (source: string) => Promise<string>): Promise<string> {
-  plainSources.set(text, (plainSources.get(text) ?? 0) + 1);
+  const id = plainRenders.next++;
+  plainRenders.open.add(id);
   try {
-    return await render(text);
+    return await render(`${text}\n\n<!--violet-plain:${id}-->\n`);
   } finally {
-    const left = plainSources.get(text)! - 1;
-    if (left) plainSources.set(text, left);
-    else plainSources.delete(text);
+    plainRenders.open.delete(id);
   }
 }
 
@@ -82,17 +88,22 @@ function flatten(node: Node, source: string): Node[] {
 
 export function plainHtmlPlugin(): MdastPluginEntry {
   return ({ source }) => {
-    if (!plainSources.has(source)) return null;
+    const mark = MARK.exec(source);
+    if (!mark || !plainRenders.open.has(Number(mark[1]))) return null;
+    // The text as written, without the mark: what the blocks are flattened from.
+    const text = source.slice(0, mark.index);
     return {
       name: 'violet-plain',
       options: { position: true },
       before(root, ctx) {
-        const blocks = root.children as unknown as Node[];
-        if (blocks.length === 1 && blocks[0].type === 'paragraph') return;
-        const children = flatten(root as unknown as Node, source);
-        if (blocks.length === 0) return;
+        const all = root.children as unknown as Node[];
+        const last = all.at(-1);
+        const blocks = last?.type === 'html' && /^<!--violet-plain:\d+-->$/.test(String(last.value).trim()) ? all.slice(0, -1) : all;
+        if (blocks.length < all.length) ctx.removeNode(root.children.at(-1)!);
+        if (blocks.length <= 1 && (blocks.length === 0 || blocks[0].type === 'paragraph')) return;
+        const children = flatten({ type: 'root', children: blocks, position: { start: { offset: blocks[0].position?.start.offset }, end: { offset: blocks.at(-1)!.position?.end.offset } } }, text);
         ctx.replaceNode(root.children[0], { type: 'paragraph', children } as never);
-        for (const block of root.children.slice(1)) ctx.removeNode(block);
+        for (const block of root.children.slice(1, blocks.length)) ctx.removeNode(block);
       },
       html(node, ctx) {
         ctx.replaceNode(node, { type: 'text', value: node.value });
