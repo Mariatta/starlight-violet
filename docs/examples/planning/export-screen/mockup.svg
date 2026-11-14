@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" width="760" height="400" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="14">
+  <title>Mockup of the export screen</title>
+  <rect width="760" height="400" rx="12" fill="#e9e6f0"/>
+  <rect x="16" y="16" width="728" height="368" rx="8" fill="#ffffff" stroke="#c9c3d6"/>
+  <rect x="16" y="16" width="728" height="40" rx="8" fill="#3b2f63"/>
+  <rect x="16" y="44" width="728" height="12" fill="#3b2f63"/>
+  <text x="36" y="42" fill="#ffffff" font-weight="600">Lucky Town Foodie Club · organizers</text>
+  <text x="724" y="42" fill="#d9d0f5" font-size="12" text-anchor="end">Signed in as Marcus Chen</text>
+
+  <text x="40" y="92" fill="#231d33" font-size="20" font-weight="600">Export data</text>
+  <text x="40" y="116" fill="#5d5670" font-size="13">Exports are built in the background. We email you a link when the file is ready.</text>
+
+  <g font-size="13" fill="#231d33">
+    <text x="40" y="152">What to export</text>
+    <rect x="40" y="160" width="220" height="34" rx="6" fill="#ffffff" stroke="#a79fbb"/>
+    <text x="52" y="182">Photos</text>
+    <path d="M240 172 l6 6 l6 -6" stroke="#5d5670" fill="none" stroke-width="1.5"/>
+
+    <text x="280" y="152">From</text>
+    <rect x="280" y="160" width="140" height="34" rx="6" fill="#ffffff" stroke="#a79fbb"/>
+    <text x="292" y="182">2026-01-01</text>
+
+    <text x="436" y="152">To</text>
+    <rect x="436" y="160" width="140" height="34" rx="6" fill="#ffffff" stroke="#a79fbb"/>
+    <text x="448" y="182">2026-10-25</text>
+
+    <rect x="596" y="160" width="124" height="34" rx="6" fill="#7c5cc4"/>
+    <text x="658" y="182" fill="#ffffff" text-anchor="middle" font-weight="600">Start export</text>
+  </g>
+
+  <text x="40" y="236" fill="#231d33" font-size="15" font-weight="600">Recent exports</text>
+  <g font-size="12">
+    <rect x="40" y="248" width="680" height="28" fill="#f3f1f8"/>
+    <g fill="#5d5670" font-weight="600">
+      <text x="52" y="267">Export</text><text x="200" y="267">Range</text><text x="400" y="267">Started</text><text x="540" y="267">Status</text>
+    </g>
+    <g fill="#231d33">
+      <text x="52" y="298">Photos</text><text x="200" y="298">2026-01-01 to 2026-10-25</text><text x="400" y="298">2 min ago</text>
+      <rect x="540" y="285" width="78" height="20" rx="10" fill="#fff1d6"/><text x="579" y="299" text-anchor="middle" fill="#8a5a00">Building</text>
+      <text x="52" y="330">RSVPs</text><text x="200" y="330">Pierogi-making night</text><text x="400" y="330">Yesterday</text>
+      <rect x="540" y="317" width="78" height="20" rx="10" fill="#dcf3e3"/><text x="579" y="331" text-anchor="middle" fill="#1d6b3a">Ready</text>
+      <text x="640" y="331" fill="#7c5cc4" text-decoration="underline">Download</text>
+      <text x="52" y="362">Venues</text><text x="200" y="362">All time</text><text x="400" y="362">12 days ago</text>
+      <rect x="540" y="349" width="78" height="20" rx="10" fill="#ece9f1"/><text x="579" y="363" text-anchor="middle" fill="#5d5670">Expired</text>
+    </g>
+    <path d="M40 310 H720 M40 342 H720" stroke="#ece9f1"/>
+  </g>
+</svg>
