@@ -53,9 +53,6 @@ recent ones, and the link arrives by email:
 
 ![Mockup of the export screen: a type, a date range, a Start export button, and a list of recent exports with their status](mockup.svg)
 
-In the plan, :task[4] moves the writers into a job and :task[5] stores
-the file; :pr[2] ships both.
-
 ## Open questions
 
 - How long should a download link keep working? Sofia answers; the spec

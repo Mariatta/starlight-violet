@@ -47,7 +47,7 @@ function headersPlugin(resolved: ResolvedOptions) {
 
 /**
  * In the dev server, a site with `trailingSlash: 'always'` answers 404 to a
- * served notes file, such as `/files/images/diagram.svg`, because the files
+ * served notes file, such as `/files/images/architecture.svg`, because the files
  * route's pattern has no extension. Add the slash before Astro sees the
  * request. A build writes real files, so it needs nothing.
  */

@@ -17,9 +17,9 @@ related:
 
 # Architecture
 
-The Lucky Town Foodie Club app is a Django app with a Celery worker. This
-page covers the parts the export screen touches; as decision 0003 says,
-once PR 2 merges, exports never run in the request.
+The Lucky Town Foodie Club app is a Django app with two Celery workers.
+This page covers the parts the export screen touches; as decision 0003
+says, exports never run in the request.
 
 ![How an export runs: the organizer starts it, the web app queues it, the worker reads Postgres and the photos, uploads to S3, and the organizer gets an email with a link](images/architecture.svg)
 
@@ -29,7 +29,8 @@ once PR 2 merges, exports never run in the request.
 |---|---|---|
 | Web app | Django, one process | The export screen and the `Export` rows |
 | Job queue | Redis | Queues `default` (event reminders) and `exports` |
-| Worker | Celery, one process on `-Q default,exports` | Nothing; writes exports to a temporary file |
+| Worker | Celery, `-Q default` | Nothing; sends event reminders |
+| Export worker | Celery, `-Q exports`, its own process (decision 0003) | Nothing; writes exports to a temporary file |
 | Postgres | Managed database | Members, events, RSVPs, venues |
 | Storage | S3, private bucket | `photos/` from every event, and `exports/<id>.csv` or `.zip`, deleted after seven days ([Q1](handoffs/export-jobs.md#q1)) |
 
@@ -38,7 +39,7 @@ once PR 2 merges, exports never run in the request.
 1. The organizer starts an export on the screen; an `Export` row is
    created as Queued.
 2. The web app queues `build_export` on the `exports` queue and returns.
-3. The worker picks it up, marks it Building, and runs the writer for its
+3. The export worker picks it up, marks it Building, and runs the writer for its
    type.
 4. The writer reads rows from Postgres for the date range, and for photos,
    the files under `photos/`.

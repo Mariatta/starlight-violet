@@ -27,6 +27,12 @@ and gets an email with a download link when the file is ready. The screen
 lists their recent exports and the state of each. It rests on decision
 0003: every export runs in a background job.
 
+## How it is built
+
+The [plan](plan.md) builds this in three pull requests: :task[4] moves the
+writers into a job and :task[5] stores the file; :pr[2] ships both and
+turns the screen on.
+
 ## Non-goals
 
 Scheduled exports, and formats beyond CSV and zip (decision 0001).
