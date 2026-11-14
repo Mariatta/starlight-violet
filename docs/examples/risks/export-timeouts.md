@@ -31,6 +31,6 @@ Build every export in the background and email a link (decision 0003).
 [Task 5](../planning/export-screen/plan.md#task-5-store-the-file-with-an-expiring-link)
 stores the file; both ship in :pr[2]{topic=export-screen}.
 
-What still waits on an answer, from the handoff:
+The handoff's questions, the answered one included:
 
 ::questions{of=export-jobs}

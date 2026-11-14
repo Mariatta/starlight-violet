@@ -21,7 +21,7 @@ each other the way real notes do.
 | Progress bars for tasks and PRs, the stack, issues and related tables | The [plan](../planning/export-screen/plan/), and each PR's page: the plan is `split: true` |
 | A planning folder read in order, with previous and next links | [Context](../planning/export-screen/context/), then brainstorm, spec and plan |
 | An image from the notes folder | The mockup in the [brainstorm](../planning/export-screen/brainstorm/#where-we-landed), and the diagram on [Architecture](../reference/architecture/) |
-| `:task[4]`, `:pr[2]` and "Tasks 1 to 3" as links | The [brainstorm](../planning/export-screen/brainstorm/) and the plan's [PR 1](../planning/export-screen/plan/pr-1/) |
+| `:task[4]`, `:pr[2]` and "Tasks 1 to 3" as links | The [spec](../planning/export-screen/spec/#how-it-is-built) and the plan's [PR 1](../planning/export-screen/plan/pr-1/) |
 | "decision 0003" linking itself, and a decision that supersedes another | [Architecture](../reference/architecture/), [decision 0002](../decisions/0002-stream-exports-in-the-request/) and [the list of decisions](../decisions/) |
 | Open questions, with links straight to one of them | The [handoff](../handoffs/export-jobs/#open-questions); the spec and plan link to `export-jobs.md#q2` and the like |
 | A link to a heading on another page, inside a split plan | The [risk](../risks/export-timeouts/) links to Task 5, which lands on the PR 2 page |

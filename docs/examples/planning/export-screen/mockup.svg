@@ -22,7 +22,7 @@
 
     <text x="436" y="152">To</text>
     <rect x="436" y="160" width="140" height="34" rx="6" fill="#ffffff" stroke="#a79fbb"/>
-    <text x="448" y="182">2026-10-31</text>
+    <text x="448" y="182">2026-10-25</text>
 
     <rect x="596" y="160" width="124" height="34" rx="6" fill="#7c5cc4"/>
     <text x="658" y="182" fill="#ffffff" text-anchor="middle" font-weight="600">Start export</text>
@@ -35,7 +35,7 @@
       <text x="52" y="267">Export</text><text x="200" y="267">Range</text><text x="400" y="267">Started</text><text x="540" y="267">Status</text>
     </g>
     <g fill="#231d33">
-      <text x="52" y="298">Photos</text><text x="200" y="298">2026-01-01 to 2026-10-31</text><text x="400" y="298">2 min ago</text>
+      <text x="52" y="298">Photos</text><text x="200" y="298">2026-01-01 to 2026-10-25</text><text x="400" y="298">2 min ago</text>
       <rect x="540" y="285" width="78" height="20" rx="10" fill="#fff1d6"/><text x="579" y="299" text-anchor="middle" fill="#8a5a00">Building</text>
       <text x="52" y="330">RSVPs</text><text x="200" y="330">Pierogi-making night</text><text x="400" y="330">Yesterday</text>
       <rect x="540" y="317" width="78" height="20" rx="10" fill="#dcf3e3"/><text x="579" y="331" text-anchor="middle" fill="#1d6b3a">Ready</text>

@@ -34,13 +34,13 @@ prs:
   - number: 1
     branch: export-screen/01-foundation
     tasks: [1, 2, 3]
-    ships: "The screen, writing RSVPs and venues in the request"
+    ships: "The model, the writers and the screen, behind a flag"
     status: done
     pull: "foodie-club-app#14"
   - number: 2
     branch: export-screen/02-background-jobs
     tasks: [4, 5, 6]
-    ships: "Every export built by the worker, stored, and emailed as a link"
+    ships: "Every export built by the export worker, stored and emailed as a link; the screen turned on"
     status: in-review
     pull: "foodie-club-app#18"
   - number: 3
@@ -51,10 +51,10 @@ prs:
 
 # Export screen plan
 
-Build the [spec](spec.md) in three pull requests. PR 1 is useful on its
-own: RSVPs and venues export from the screen. PR 2 moves every export
-into the worker, which is what makes the photo archive possible. PR 3 is polish and
-a limit.
+Build the [spec](spec.md) in three pull requests. PR 1 lays the groundwork
+behind a flag, so nothing exports in the request (decision 0003). PR 2 runs
+every export in the export worker and turns the screen on. PR 3 is polish
+and a limit.
 
 ::prs
 
@@ -62,8 +62,9 @@ a limit.
 
 # PR 1: Foundation
 
-The screen and the model behind it, with the file written in the request.
-Photos stays hidden until PR 2.
+The model, the writers and the screen, behind the `export_screen` flag.
+The screen creates Queued rows but nothing builds them until PR 2, so
+organizers do not see it yet.
 
 ### Task 1: The Export model
 
@@ -101,8 +102,9 @@ a nightly job deletes the file and marks the row Expired.
 **Interfaces:**
 
 - Consumes: the temporary file from Task 4.
-- Produces: `Export.download_url()`, which checks the organizer and signs a
-  link for five minutes.
+- Produces: `Export.download_url(user)`, which returns `None` unless the
+  export is Ready and `user` is the organizer who started it, and otherwise
+  signs a link for five minutes.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -113,7 +115,7 @@ def test_expired_export_has_no_download(export_factory, freezer):
     expire_exports()
     export.refresh_from_db()
     assert export.status == "expired"
-    assert export.download_url() is None
+    assert export.download_url(export.organizer) is None
 ```
 
 - [ ] **Step 2: Run it to see it fail**
@@ -150,5 +152,5 @@ next one is allowed. The number waits on Q3; the approach is decision 0004.
 
 - Every task has its PR: Tasks 1 to 8.
 - Task 5 and Task 6 can land in either order; Task 4 cannot move.
-- Nothing here needs a new service: the worker and Redis already run for
-  the event reminder emails.
+- One new process, the export worker on its own queue (decision 0003).
+  Redis already runs for the event reminder emails.

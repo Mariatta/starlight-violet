@@ -7,7 +7,7 @@ proposed: 2026-10-24
 date: 2026-10-27
 supersedes:
   - decision: "0002"
-ask: "I need every photo from 2026 for the December social, and I am not asking Marcus to SSH in for it."
+ask: "I need every photo from 2026 for the December social, and neither of us should have to SSH in for it."
 confirmed: "Sofia Bianchi, at the October planning call: \"Yes, all of them through the worker. One way to do it.\""
 history:
   - date: 2026-10-27
@@ -38,7 +38,8 @@ Every export type goes this way, including the quick ones.
 - No export is bound by the request limit.
 - RSVPs and photos are personal data, so exported files expire and are
   deleted; how soon was left open.
-- The screen has to show state (Queued, Building, Ready, Failed, Expired),
-  which is :task[7]{topic=export-screen}.
-- A slow photo archive could hold up reminder emails in the same queue;
-  exports get a queue of their own.
+- The screen has to show each export's state: Queued, Building, Ready,
+  Failed or Expired.
+- A slow photo archive must not hold up reminder emails, so exports get a
+  queue of their own and a worker process of their own: one new process,
+  and the reason the "one worker" constraint in the context gives way.

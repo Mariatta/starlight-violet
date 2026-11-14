@@ -40,16 +40,17 @@ next_steps:
 
 ## Summary
 
-PR 1 is merged: organizers export RSVPs and venues from the screen, in the
-request. This hands over PR 2, which moves every export into the worker so
-the photo archive can run for a whole year (decision 0003). The first thing
+PR 1 is merged: the `Export` model, the writers and the screen, behind a
+flag. This hands over PR 2, which runs every export in the export worker
+and turns the screen on, so the photo archive can run for a whole year
+(decision 0003). The first thing
 to produce is Task 5 passing review.
 
 ## Context
 
 The club app is Django with a Celery worker already running for event
 reminder emails; see the [architecture](../architecture.md). Exports get a
-queue of their own. Run the exports suite with `pytest exports -v`; it uses
+queue and a worker process of their own. Run the exports suite with `pytest exports -v`; it uses
 a fake bucket, so no AWS credentials are needed.
 
 Already checked: the private bucket exists and the worker's role can write
