@@ -34,7 +34,7 @@ are not.
 | Approach | Cost | Outcome |
 |---|---|---|
 | Stream in the request | Nothing new to run | Lost: a year of photos times out at 30 seconds. See [what we tried first](#what-we-tried-first) |
-| Background job, email a link | A worker queue, storage, an email; files to expire | Won: works for every type, ready in about seven minutes for a year of photos |
+| Background job, email a link | A worker process and queue, storage, an email; files to expire | Won: works for every type, ready in about seven minutes for a year of photos |
 | Nightly pre-built files | A scheduler and storage | Lost: no date ranges, and tonight's RSVPs would be yesterday's list |
 
 ## What we tried first

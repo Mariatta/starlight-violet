@@ -53,7 +53,7 @@ reminder emails; see the [architecture](../architecture.md). Exports get a
 queue and a worker process of their own. Run the exports suite with `pytest exports -v`; it uses
 a fake bucket, so no AWS credentials are needed.
 
-Already checked: the private bucket exists and the worker's role can write
+Already checked: the private bucket exists and the export worker's role can write
 to `exports/` and read `photos/`. Signed links work from the staging site.
 
 ## What is decided

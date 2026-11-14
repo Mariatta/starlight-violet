@@ -44,8 +44,8 @@ says, exports never run in the request.
 4. The writer reads rows from Postgres for the date range, and for photos,
    the files under `photos/`.
 5. The file goes to the bucket and the row becomes Ready.
-6. The organizer gets an email with a link. The link checks they are
-   signed in before it signs a five-minute download.
+6. The organizer gets an email with a link. The link checks it is the
+   organizer who started the export before it signs a five-minute download.
 
 ## Re-running a failed export
 
@@ -57,7 +57,7 @@ says, exports never run in the request.
    ```
 
 2. Fix the cause. A `StorageError` is usually expired worker credentials;
-   check the worker's role first.
+   check the export worker's role first.
 
 3. Queue it again:
 

@@ -27,15 +27,15 @@ and gets an email with a download link when the file is ready. The screen
 lists their recent exports and the state of each. It rests on decision
 0003: every export runs in a background job.
 
+## Non-goals
+
+Scheduled exports, and formats beyond CSV and zip (decision 0001).
+
 ## How it is built
 
 The [plan](plan.md) builds this in three pull requests: :task[4] moves the
 writers into a job and :task[5] stores the file; :pr[2] ships both and
 turns the screen on.
-
-## Non-goals
-
-Scheduled exports, and formats beyond CSV and zip (decision 0001).
 
 ## The screen
 
@@ -63,8 +63,8 @@ Shown in the [brainstorm](brainstorm.md#where-we-landed). It has:
 - A link works for seven days, then the file is deleted.
 - An organizer can start a limited number of exports an hour; decision
   0004 proposes how to enforce it.
-- The download checks the organizer is signed in; the link alone is not
-  enough.
+- The download checks that it is the organizer who started the export;
+  the link alone is not enough.
 
 ## Open questions
 
