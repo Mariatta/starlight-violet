@@ -49,9 +49,15 @@ export function listMarkdown(dir: string): string[] {
   return files.sort();
 }
 
+/** Whether the site builds a page from this notes file: it is in the notes, not skipped, and not the landing page. */
+export function isBuilt(file: string): boolean {
+  const rel = notesRel(file);
+  return file.startsWith(notesDir()) && !isSkipped(rel) && rel !== LANDING;
+}
+
 /** Every Markdown page of the notes folder the site keeps. */
 export function notesPages(): string[] {
-  return listMarkdown(notesDir()).filter((file) => !isSkipped(notesRel(file)) && notesRel(file) !== LANDING);
+  return listMarkdown(notesDir()).filter(isBuilt);
 }
 
 /** Every file under `dir`, skipping dotfiles, build folders and, at the top, private folders. */

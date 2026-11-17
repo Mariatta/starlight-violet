@@ -35,13 +35,16 @@ import { getOptions } from '../options';
 import { idFor, isServedFile, notesDir, pageUrl, staticUrl } from '../lib/notes';
 import { anchorUrl, planFor, type Plan } from '../lib/plans';
 import { readDecisions } from '../lib/records';
-import { folderQuestions, folderRows, sectionUrl, siblingPages, type Sibling } from '../lib/references';
+import { folderQuestions, folderRows, planRows, sectionUrl, siblingPages, type Sibling } from '../lib/references';
 
 const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|#|\/)/i;
 const NUMBER = String.raw`\d+(?:\.\d+)*`;
+/** A whole number part of a list, and the pattern that splits a list into them. */
+const IS_NUMBER = new RegExp(`^${NUMBER}$`);
+const NUMBER_PARTS = new RegExp(`(${NUMBER})`);
 const LIST = String.raw`${NUMBER}(?:(?:,\s*|\s+and\s+|,\s*and\s+|\s+to\s+)${NUMBER})*`;
 /** "this stage 2 people" counts; "stage 2" after one of these words is not a reference. */
-const NOT_AFTER = String.raw`(?<!\b(?:this|that|these|those|each|every|any|which|what)\s)`;
+const NOT_AFTER = String.raw`(?<!\b(?:this|that|these|those|each|every|any|which|what)\s+)`;
 /** A count or a length of time after a number: "the task 3 times", "stage 2 days later", "2.5 days". */
 const UNIT = String.raw`(?!\.\d)(?!\s*(?:%|x\b|h\b|times?\b(?!\s+out\b)|days?\b|hours?\b|weeks?\b|months?\b|years?\b|minutes?\b|mins?\b|people\b|points?\b(?!\s+(?:to|at)\b)|pts?\b))`;
 /**
@@ -108,8 +111,8 @@ interface Match {
 function numbered(match: RegExpMatchArray, urls: Map<string, string>): Match | undefined {
   const nodes: PhrasingContent[] = [text(match[1] + match[2])];
   let linked = false;
-  for (const part of match[3].split(new RegExp(`(${NUMBER})`)).filter(Boolean)) {
-    const url = new RegExp(`^${NUMBER}$`).test(part) ? urls.get(part) : undefined;
+  for (const part of match[3].split(NUMBER_PARTS).filter(Boolean)) {
+    const url = IS_NUMBER.test(part) ? urls.get(part) : undefined;
     // "Task 3.2" with no row 3.2 links its 3 to Task 3, as before rows had numbers.
     const whole = !url && /^\d+\./.test(part) ? /^\d+/.exec(part)![0] : undefined;
     if (url) {
@@ -259,6 +262,29 @@ function markAnchoredText(root: any, mark: (node: any) => void): void {
 /** The data key marking a text inside a raw <a>. */
 const IN_ANCHOR = 'violetInRawAnchor';
 
+/** The data key naming the notes file a text was written in, when another page shows it (`::questions`). */
+export const FROM_PAGE = 'violetFromPage';
+
+/** What prose written in `file` links to; nothing is read until a text names something. */
+function targetsFor(file: string | undefined): Targets {
+  const dir = file && file.startsWith(notesDir()) ? dirname(file) : undefined;
+  const plan = once(() => planFor(file));
+  const rows = once(() => (dir ? folderRows(file!) : new Map<string, Map<string, string>>()));
+  return {
+    tasks: once(() => {
+      // A plan that declares tasks answers for every task number, its table rows and its headings,
+      // so one sentence never links tasks on two different pages.
+      const own = plan();
+      const table = own?.tasks.length ? planRows(own.file).get('task') : rows().get('task');
+      return new Map([...(table ?? []), ...(own?.tasks ?? []).map((t) => [String(t.number), t.url] as [string, string])]);
+    }),
+    decisions: once(() => (getOptions().kinds.includes('decision') ? new Map(readDecisions().map((d) => [d.number, d.url])) : new Map<string, string>())),
+    stages: once(() => rows().get('stage') ?? new Map()),
+    questions: once(() => (dir ? folderQuestions(file!) : new Map())),
+    pages: once(() => (dir ? siblingPages(file!) : new Map())),
+  };
+}
+
 export function notesLinksPlugin(): MdastPluginEntry {
   return ({ fileURL, source }) => {
     // Only a page with a raw <a> needs a pass over its tags.
@@ -271,13 +297,10 @@ export function notesLinksPlugin(): MdastPluginEntry {
       if (!plans.has(key)) plans.set(key, planFor(file, topic));
       return plans.get(key);
     };
-    const rows = once(() => (dir ? folderRows(file!) : new Map<string, Map<string, string>>()));
-    const targets: Targets = {
-      tasks: once(() => new Map([...(rows().get('task') ?? []), ...(plan()?.tasks ?? []).map((t) => [String(t.number), t.url] as [string, string])])),
-      decisions: once(() => (getOptions().kinds.includes('decision') ? new Map(readDecisions().map((d) => [d.number, d.url])) : new Map<string, string>())),
-      stages: once(() => rows().get('stage') ?? new Map()),
-      questions: once(() => (dir ? folderQuestions(file!) : new Map())),
-      pages: once(() => (dir ? siblingPages(file!) : new Map())),
+    const targets = new Map<string | undefined, Targets>([[file, targetsFor(file)]]);
+    const targetsOf = (from: string | undefined) => {
+      if (!targets.has(from)) targets.set(from, targetsFor(from));
+      return targets.get(from)!;
     };
     return {
       name: 'notes-links',
@@ -328,7 +351,8 @@ export function notesLinksPlugin(): MdastPluginEntry {
         for (let up: any = parent; up; up = ctx.parent(up as never)) {
           if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
         }
-        const nodes = autolink(value, targets);
+        // Text another page wrote links as it does on that page.
+        const nodes = autolink(value, targetsOf((node as any).data?.[FROM_PAGE] ?? file));
         if (nodes) ctx.replaceNode(node, nodes);
       },
     };

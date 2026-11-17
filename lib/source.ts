@@ -4,7 +4,7 @@
  * changes. Shared by the plan, heading and table-row readers, so they agree
  * with each other and with the rendered page.
  */
-import { existsSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import type { Root } from 'mdast';
 import { markdownToMdast, type Features } from 'satteri';
 
@@ -32,7 +32,9 @@ export function parse(body: string): Root {
   if (tree) {
     trees.delete(body);
   } else {
-    const features = (store[FEATURES] as Features | undefined) ?? { gfm: true, directive: true };
+    // Bodies come with their front matter already removed, and often their title line too,
+    // so a leading `---` is a thematic break, not front matter.
+    const features = { ...((store[FEATURES] as Features | undefined) ?? { gfm: true, directive: true }), frontmatter: false };
     tree = markdownToMdast(body, { features }) as Root;
   }
   trees.set(body, tree);
@@ -91,7 +93,7 @@ const LIMIT = 20000;
  * every handoff field), and each asks about the same few files.
  */
 export function cached<T>(path: string, key: string, compute: () => T): T {
-  const mtime = existsSync(path) ? statSync(path).mtimeMs : -1;
+  const mtime = statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? -1;
   const id = `${key}:${path}`;
   const hit = memo.get(id);
   memo.delete(id);

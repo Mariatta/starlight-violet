@@ -7,7 +7,7 @@
  */
 import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
-import { idFor, isSkipped, LANDING, notesDir, notesRel, pageUrl, readPage, splitTitle, type Page } from './notes';
+import { idFor, isBuilt, notesDir, pageUrl, readPage, splitTitle, type Page } from './notes';
 import { anchorUrl, headings, isSplit, pageParts, planFor } from './plans';
 import { cached, nodesOf, parse, textOf } from './source';
 
@@ -49,7 +49,7 @@ function markdownFiles(dir: string): string[] {
           .filter((n) => extname(n) === '.md')
           .sort()
           .map((n) => join(dir, n))
-          .filter((f) => f.startsWith(notesDir()) && !isSkipped(notesRel(f)) && notesRel(f) !== LANDING)
+          .filter(isBuilt)
       : [],
   );
 }
@@ -139,16 +139,21 @@ function at(page: Sibling, slug: string): string {
   return anchorUrl(page.file, slug) ?? `${page.url}#${slug}`;
 }
 
+/** A page's Principles section, numbered or not. */
+const PRINCIPLES = /^(?:\d+[a-z]?\.?\s+)?principles\b/i;
+
 /**
  * A section of a page by its number ("6", "6.4", "1a"): the heading whose
  * text starts with it. With `principle`, the page's Principles section.
  */
 export function sectionUrl(sibling: Sibling, ref: { number?: string; principle?: boolean }): string | undefined {
-  const found = cached(sibling.file, 'headings', () => headings(splitTitle(page(sibling.file).body).body)).find(({ text }) =>
-    ref.principle
-      ? /^(?:\d+[a-z]?\.?\s+)?principles\b/i.test(text)
-      : ref.number !== undefined && new RegExp(`^${ref.number.replace(/\./g, '\\.')}(?:[.:)](?![0-9a-z])|\\s|$)`, 'i').test(text),
-  );
+  const pattern = ref.principle
+    ? PRINCIPLES
+    : ref.number !== undefined
+      ? new RegExp(`^${ref.number.replace(/\./g, '\\.')}(?:[.:)](?![0-9a-z])|\\s|$)`, 'i')
+      : undefined;
+  if (!pattern) return;
+  const found = cached(sibling.file, 'headings', () => headings(splitTitle(page(sibling.file).body).body)).find(({ text }) => pattern.test(text));
   return found && at(sibling, found.slug);
 }
 
@@ -198,15 +203,19 @@ export function folderPlans(file: string): string[] {
 export function folderRows(file: string): Map<string, Map<string, string>> {
   const out = new Map<string, Map<string, string>>();
   for (const plan of folderPlans(file)) {
-    const found = new Map<string, Map<string, string>>();
-    for (const { kind, label, url } of pageRows(plan)) {
-      if (out.has(kind)) continue;
-      if (!found.has(kind)) found.set(kind, new Map());
-      if (!found.get(kind)!.has(label)) found.get(kind)!.set(label, url);
-    }
-    for (const [kind, rows] of found) out.set(kind, rows);
+    for (const [kind, rows] of planRows(plan)) if (!out.has(kind)) out.set(kind, rows);
   }
   return out;
+}
+
+/** The numbered rows of one plan page, by kind and label, each to its anchor. */
+export function planRows(plan: string): Map<string, Map<string, string>> {
+  const found = new Map<string, Map<string, string>>();
+  for (const { kind, label, url } of pageRows(plan)) {
+    if (!found.has(kind)) found.set(kind, new Map());
+    if (!found.get(kind)!.has(label)) found.get(kind)!.set(label, url);
+  }
+  return found;
 }
 
 /**

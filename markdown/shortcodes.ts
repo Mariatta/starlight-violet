@@ -2,15 +2,17 @@
  * Shortcodes: a leaf directive such as `::planning{status=draft}` on a line
  * of its own is replaced, at build time, by Markdown generated from the notes.
  * Each entry in SHORTCODES takes the directive's attributes and returns
- * Markdown.
+ * Markdown, or the nodes themselves when they must carry more than text can.
  */
-import type { MdastPluginEntry } from 'satteri';
+import type { MdastNode, MdastPluginEntry } from 'satteri';
 import { fileURLToPath } from 'node:url';
 import { getKind, progressBar, statusBadge, statusLabel } from '../kinds';
 import { getOptions } from '../options';
 import { idFor, issueRefs, issueUrl, notesDir, notesPages, notesRel, pageUrl, readKind, readPage, sectionDescription, sections, slugify, splitTitle, words, type PageInfo } from '../lib/notes';
 import { planFor, planningFolder, type Plan } from '../lib/plans';
 import { readDecisions, readHandoffs } from '../lib/records';
+import { parse } from '../lib/source';
+import { FROM_PAGE } from './links';
 
 type Attributes = Record<string, string | null | undefined>;
 
@@ -26,6 +28,30 @@ function table(fullHeader: string[], fullRows: string[][]): string {
   const rows = fullRows.map((row) => row.filter((_, i) => keep[i]));
   const line = (cells: string[]) => `| ${cells.map(cell).join(' | ')} |`;
   return [line(header), `|${header.map(() => '---').join('|')}|`, ...rows.map(line)].join('\n');
+}
+
+/** Strip parser positions, which point into a source the page does not have. */
+function unplaced(node: MdastNode): MdastNode {
+  const { position: _, ...rest } = node as MdastNode & { position?: unknown; children?: MdastNode[] };
+  const children = (rest as { children?: MdastNode[] }).children;
+  return (children ? { ...rest, children: children.map(unplaced) } : rest) as MdastNode;
+}
+
+/**
+ * Markdown another page wrote, parsed here as nodes rather than handed back
+ * as text: raw HTML in it shows as text (as in that page's header, so
+ * `<id>` is not lost), and each text is marked with the page it came from,
+ * so "Q3" or "SPEC 3.2" in it link where they do on that page, not in the
+ * folder of the page showing it.
+ */
+function fromPage(markdown: string, file: string): MdastNode {
+  const mark = (node: MdastNode): MdastNode => {
+    if (node.type === 'html') return { type: 'text', value: (node as { value: string }).value, data: { [FROM_PAGE]: file } } as MdastNode;
+    if (node.type === 'text') return { ...node, data: { ...(node as { data?: object }).data, [FROM_PAGE]: file } } as MdastNode;
+    const children = (node as { children?: MdastNode[] }).children;
+    return (children ? { ...node, children: children.map(mark) } : node) as MdastNode;
+  };
+  return mark(unplaced(parse(markdown).children[0] as MdastNode));
 }
 
 function issueLinks(...issues: (string | undefined)[]): string {
@@ -65,7 +91,7 @@ function topicLabels(pages: PageInfo[]): (page: PageInfo) => string {
   return (page) => ((folders.get(page.topic)?.size ?? 0) > 1 ? page.folder : page.topicLabel);
 }
 
-export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) => string> = {
+export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) => string | MdastNode> = {
   /**
    * The landing page's cards: one per top-level folder of the notes, in
    * sidebar order, with its name and its one-line description, leading to
@@ -210,13 +236,18 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
     return table(['Handoff', 'Status', 'Date', 'From', 'To', 'Open questions'], rows);
   },
 
-  /** The open questions of one handoff: `::questions{of=finance}`. */
+  /**
+   * The open questions of one handoff: `::questions{of=finance}`. Each id
+   * links to its row on the handoff, and the text reads as the handoff's
+   * header reads it (see `fromPage`).
+   */
   questions({ of }) {
     const handoff = readHandoffs().find((h) => h.id === of || h.id.endsWith(`/${of}`));
     if (!handoff) return `> No handoff with id \`${of ?? ''}\`.`;
     const questions = (handoff.data.open_questions as Record<string, string>[] | undefined) ?? [];
-    const rows = questions.map((q) => [q.id, q.question, q.blocks ?? '', q.answer ?? '*open*']);
-    return table(['', 'Question', 'Blocks', 'Answer'], rows);
+    const rows = questions.map((q) => [`[${q.id}](${handoff.url}#${String(q.id).toLowerCase()})`, q.question, q.blocks ?? '', q.answer ?? '*open*']);
+    const markdown = table(['', 'Question', 'Blocks', 'Answer'], rows);
+    return rows.length === 0 ? markdown : fromPage(markdown, handoff.file);
   },
 
   /** Every reference page , newest change first: `::references{status=current}`. */
@@ -278,7 +309,8 @@ export function shortcodesPlugin(): MdastPluginEntry {
       leafDirective(node) {
         const render = SHORTCODES[node.name];
         if (!render) return;
-        return { raw: `${render(node.attributes ?? {}, file)}\n` };
+        const out = render(node.attributes ?? {}, file);
+        return typeof out === 'string' ? { raw: `${out}\n` } : out;
       },
     };
   };

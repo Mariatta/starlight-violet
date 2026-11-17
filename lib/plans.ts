@@ -7,7 +7,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Slugger from 'github-slugger';
-import { idFor, isSkipped, LANDING, notesDir, notesRel, pageUrl, readKind, readPage, splitTitle } from './notes';
+import { idFor, isBuilt, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
 import { cached, nodesOf, parse, textOf } from './source';
 
 export interface PlanTask {
@@ -274,8 +274,7 @@ function planInFolder(folder: string): Plan | undefined {
   for (const entry of readdirSync(folder).sort()) {
     if (!entry.endsWith('.md')) continue;
     // A page the site leaves out is no one's plan.
-    const rel = notesRel(join(folder, entry));
-    if (isSkipped(rel) || rel === LANDING) continue;
+    if (!isBuilt(join(folder, entry))) continue;
     const plan = readPlan(join(folder, entry));
     if (plan) return plan;
   }

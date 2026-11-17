@@ -202,9 +202,11 @@ export function notesLoader(): Loader {
             const kind = getKind(parsed.kind);
             if (kind?.render) {
               const inline = async (text: string, options?: { html?: boolean }) => {
-                const toHtml = async (source: string) => (await renderMarkdown(source, { fileURL })).html.replace(/^<p>|<\/p>\s*$/g, '');
+                const toHtml = async (source: string) => (await renderMarkdown(source, { fileURL })).html;
                 const source = notFrontMatter(text);
-                return options?.html === false ? renderPlain(source, toHtml) : toHtml(source);
+                // The paragraph comes off last, once a plain render has taken out whatever was left of its mark.
+                const html = options?.html === false ? await renderPlain(source, toHtml) : await toHtml(source);
+                return html.replace(/^<p>|<\/p>\s*$/g, '');
               };
               await kind.render(parsed, inline);
             }
