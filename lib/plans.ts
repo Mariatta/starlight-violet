@@ -54,6 +54,8 @@ export interface Part {
   body: string;
   /** The section's heading; undefined for the overview. */
   title?: string;
+  /** The section's heading as written, code marks and escapes included: what a PR's title is taken from. */
+  source?: string;
   /** The PR whose section this is. */
   pr?: number;
   /** The anchors of its headings. */
@@ -95,16 +97,17 @@ function splitParts(id: string, data: Record<string, unknown>, body: string): Pa
     .filter((node) => node.type === 'heading' && node.depth === 1 && node.position)
     .filter((node) => textOf(node as never, body).trim())
     // The part's title and address come from the heading as written, as they always have, so they do not move.
-    .map((node) => ({ line: node.position!.start.line - 1, after: node.position!.end.line, text: plain(written(node as never, body)) }));
+    .map((node) => ({ line: node.position!.start.line - 1, after: node.position!.end.line, source: written(node as never, body) }));
   const slugger = new Slugger();
   const overview = lines.slice(0, starts[0]?.line ?? lines.length).join('\n');
   const parts: Part[] = [{ id, url, body: overview, anchors: headings(overview) }];
-  starts.forEach(({ after, text }, index) => {
+  starts.forEach(({ after, source }, index) => {
+    const text = plain(source);
     const partBody = lines.slice(after, starts[index + 1]?.line ?? lines.length).join('\n');
     const pr = PR_HEADING.exec(text);
     const slug = pr ? `pr-${pr[1]}` : slugger.slug(text);
     const partId = `${id}/${slug}`;
-    parts.push({ id: partId, url: pageUrl(partId), body: partBody, title: text, pr: pr ? Number(pr[1]) : undefined, anchors: headings(partBody) });
+    parts.push({ id: partId, url: pageUrl(partId), body: partBody, title: text, source, pr: pr ? Number(pr[1]) : undefined, anchors: headings(partBody) });
   });
   return parts;
 }
@@ -211,11 +214,14 @@ type Raw = Record<string, unknown>;
  * back into Markdown, so an escape such as `\<br\>` must survive, and so
  * must code marks: without them `` `<details>` `` would become a tag. (A
  * split page's part titles leave code marks out, as they show as plain
- * text.) The text without Markdown is the fallback for a heading whose
- * marks wrap its number.
+ * text, but a split PR's title is still taken as written.) Marks around the
+ * number (`**Task 2**: ...`, `*Task 2:* ...`) are left out first. The text
+ * without Markdown is the last resort, for a heading the pattern still does
+ * not match; it may hold raw HTML.
  */
 function headingTitle(pattern: RegExp, heading: Heading): string {
-  return (pattern.exec(heading.source) ?? pattern.exec(heading.text))![2].trim();
+  const source = heading.source.replace(/^([*_]{1,3})((?:task|pr)\s+\d+[:.]?)\1/i, '$2');
+  return (pattern.exec(source) ?? pattern.exec(heading.text))![2].trim();
 }
 
 /** The plan in one file: front matter entries joined to their headings. Undefined when it declares none. */
@@ -236,7 +242,7 @@ export function readPlan(file: string): Plan | undefined {
   const prUrls = new Map<number, string>();
   for (const part of pageParts(id, data, splitTitle(body).body)) {
     if (part.pr !== undefined && part.title) {
-      prHeadings.set(part.pr, { depth: 1, text: part.title, source: part.title, slug: '', top: true });
+      prHeadings.set(part.pr, { depth: 1, text: part.title, source: part.source ?? part.title, slug: '', top: true });
       prUrls.set(part.pr, part.url);
     }
     // A heading quoted or in a list item is an example, not one of the plan's own.
