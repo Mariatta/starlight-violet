@@ -235,7 +235,10 @@ export default function violet(options: VioletOptions): StarlightPlugin {
               // and a plain field renders with them and the same plugins. Read once every integration has set
               // up, so one that turns on a feature after Violet (math, smart punctuation) is counted.
               const processor = doneConfig.markdown.processor;
-              if (!isSatteriProcessor(processor)) return;
+              // An integration after Violet may have replaced the processor.
+              if (!isSatteriProcessor(processor)) {
+                throw new Error(`${PACKAGE} needs Astro's Sätteri Markdown processor; this site uses "${processor.name}".`);
+              }
               const features = {
                 gfm: doneConfig.markdown.gfm !== false,
                 smartPunctuation: doneConfig.markdown.smartypants !== false,

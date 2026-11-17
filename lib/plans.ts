@@ -207,6 +207,9 @@ export function sectionHeadings(body: string): string[] {
 
 type Raw = Record<string, unknown>;
 
+/** What a missing heading's message adds when the page has one only inside a block. */
+const NESTED = ' of its own: the one it has is inside a ::: block, a quote or a list, which makes it an example';
+
 /**
  * A task's or PR's title from its heading, as written: the shortcodes put it
  * back into Markdown, so an escape such as `\<br\>` must survive, and so
@@ -238,7 +241,16 @@ export function readPlan(file: string): Plan | undefined {
   const prHeadings = new Map<number, Heading>();
   const taskUrls = new Map<number, string>();
   const prUrls = new Map<number, string>();
+  // Numbers with a heading only inside a quote, list item or ::: block, so a missing heading's message can say where it is.
+  const nestedTasks = new Set<number>();
+  const nestedPrs = new Set<number>();
   for (const part of pageParts(id, data, splitTitle(body).body)) {
+    for (const heading of part.anchors.filter(({ top }) => !top)) {
+      const task = TASK_HEADING.exec(heading.text);
+      if (task) nestedTasks.add(Number(task[1]));
+      const pr = PR_HEADING.exec(heading.text);
+      if (pr) nestedPrs.add(Number(pr[1]));
+    }
     if (part.pr !== undefined && part.title) {
       prHeadings.set(part.pr, { depth: 1, text: part.title, source: part.source ?? part.title, slug: '', top: true });
       prUrls.set(part.pr, part.url);
@@ -263,7 +275,7 @@ export function readPlan(file: string): Plan | undefined {
   const tasks = rawTasks.map((raw) => {
     const number = Number(raw.number);
     const heading = taskHeadings.get(number);
-    if (!heading) problems.push(`task ${number} has no "Task ${number}" heading, outside a ::: block, a quote or a list`);
+    if (!heading) problems.push(`task ${number} has no "Task ${number}" heading${nestedTasks.has(number) ? NESTED : ''}`);
     return {
       number,
       title: String(raw.title ?? (heading ? headingTitle(TASK_HEADING, heading) : '')),
@@ -283,7 +295,7 @@ export function readPlan(file: string): Plan | undefined {
     const heading = prHeadings.get(number);
     if (rawPrs.length > 0 && !heading) {
       // A split page's parts start at its own # headings; one inside a ::: block belongs to that block.
-      problems.push(`PR ${number} has no "PR ${number}" heading${isSplit(data) ? ` (a "# PR ${number}" heading inside a ::: block, a quote or a list does not start a part)` : ''}`);
+      problems.push(`PR ${number} has no "PR ${number}" heading${nestedPrs.has(number) ? `${NESTED}${isSplit(data) ? '; on a split page it does not start a part either' : ''}` : ''}`);
     }
     const listed = ((raw.tasks as number[] | undefined) ?? []).map(Number);
     for (const n of listed) if (!declared.has(n)) problems.push(`PR ${number} lists task ${n}, which is not in tasks`);
