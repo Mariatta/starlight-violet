@@ -1,0 +1,12 @@
+{
+  "name": "starlight-violet-test-site",
+  "private": true,
+  "type": "module",
+  "description": "The site Violet's tests build. Its packages are docs/'s, which make test links in; they are listed here because Astro bundles the integrations a site depends on, and this file keeps the site out of Violet's own package scope.",
+  "dependencies": {
+    "@astrojs/markdown-satteri": "*",
+    "@astrojs/starlight": "*",
+    "astro": "*",
+    "starlight-violet": "*"
+  }
+}

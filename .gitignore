@@ -5,3 +5,6 @@ dist/
 *.tgz
 .env
 .env.*
+# make test links docs' packages in here
+test/site/node_modules
+test/site/.astro-cache/
