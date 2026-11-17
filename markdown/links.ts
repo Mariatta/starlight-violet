@@ -35,10 +35,9 @@ import { getOptions } from '../options';
 import { idFor, inNotes, isServedFile, notesDir, pageUrl, staticUrl } from '../lib/notes';
 import { anchorUrl, planFor, type Plan } from '../lib/plans';
 import { readDecisions } from '../lib/records';
-import { folderQuestions, folderRows, planRows, ROW_NUMBER, sectionUrl, siblingPages, type Sibling } from '../lib/references';
+import { folderQuestions, folderRows, planRows, ROW_NUMBER as NUMBER, sectionUrl, siblingPages, type Sibling } from '../lib/references';
 
 const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|#|\/)/i;
-const NUMBER = ROW_NUMBER;
 /** A whole number part of a list, and the pattern that splits a list into them. */
 const IS_NUMBER = new RegExp(`^${NUMBER}$`);
 const NUMBER_PARTS = new RegExp(`(${NUMBER})`);

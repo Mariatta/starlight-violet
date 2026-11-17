@@ -129,7 +129,7 @@ function pageRows(file: string): { kind: string; label: string; id: string; url:
     const taken = new Set(found.filter((row) => row.heading).map((row) => row.id));
     return found.map(({ kind, label, id, part, heading }) => {
       const own = !taken.has(id);
-        return { kind, label, id, own, url: own || heading ? `${part}#${id}` : part };
+      return { kind, label, id, own, url: own || heading ? `${part}#${id}` : part };
     });
   });
 }

@@ -26,8 +26,9 @@ const trees = new Map<string, Root>();
  * renders with, so headings, tables and parts are found where the page has
  * them. With `smart: false`, smart punctuation is left off, so text reads
  * as it was written (`What's next`, not `What’s next`): what a page's
- * headings are compared with. The last few hundred trees are kept, since
- * one body is asked about many times.
+ * headings are compared with. The last few hundred trees are kept (two a
+ * body, as written and as rendered), since one body is asked about many
+ * times.
  */
 export function parse(body: string, { keep = true, smart = true } = {}): Root {
   const key = smart ? body : `\0${body}`;
@@ -44,7 +45,7 @@ export function parse(body: string, { keep = true, smart = true } = {}): Root {
     if (!keep) return tree;
   }
   trees.set(key, tree);
-  if (trees.size > 300) trees.delete(trees.keys().next().value!);
+  if (trees.size > 600) trees.delete(trees.keys().next().value!);
   return tree;
 }
 

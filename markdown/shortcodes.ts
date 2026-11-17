@@ -341,8 +341,9 @@ export function shortcodesPlugin(): MdastPluginEntry {
         if (!render) return;
         const out = render(node.attributes ?? {}, file);
         if (typeof out !== 'string') return out;
-        // The links plugin marks the text of the page's own raw <a> before any shortcode runs, so text
-        // inside a raw <a> this shortcode writes (a page's description, say) is marked here.
+        // The links plugin marks text inside a raw <a> only on a page whose own source has
+        // one, so text inside a raw <a> this shortcode writes (in a front matter title shown
+        // in a table cell, say) is marked here.
         if (!/<a[\s>]/i.test(out)) return { raw: `${out}\n` };
         const nodes = (parse(out, { keep: false }).children as MdastNode[]).map(unplaced);
         markAnchoredText({ type: 'root', children: nodes }, (n) => (n.data = { ...n.data, [IN_ANCHOR]: true }));

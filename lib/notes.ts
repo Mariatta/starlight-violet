@@ -26,7 +26,7 @@ export function notesDir(): string {
 /** Whether a path is inside the notes folder: `notes/a.md`, not `notes-archive/a.md`. */
 export function inNotes(path: string): boolean {
   const rel = relative(notesDir(), path);
-  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+  return rel !== '' && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 }
 
 /** A file's path relative to the notes folder. */
