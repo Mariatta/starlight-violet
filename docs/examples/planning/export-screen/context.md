@@ -21,7 +21,7 @@ before the export screen was designed.
 
 ## How exports work today
 
-Marcus runs `manage.py export rsvps --event pierogi-night`, waits, and
+Marcus runs `manage.py export rsvps --event <event-slug>`, waits, and
 copies the CSV off the server to the welcome host's laptop. He and Sofia
 are the only two with shell access; everyone else asks in the organizer
 chat.

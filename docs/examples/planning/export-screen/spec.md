@@ -4,7 +4,7 @@ type: spec
 status: in-review
 created: 2026-10-26
 updated: 2026-11-05
-note: "In review until Q2 and Q3 are answered."
+note: "In review until Q2, Q3 and Q4 are answered."
 issues:
   - ref: "foodie-club-app#12"
     title: "Export screen for organizers"
@@ -72,3 +72,4 @@ Shown in the [brainstorm](brainstorm.md#where-we-landed). It has:
 |---|---|---|
 | [Q2](../../handoffs/export-jobs.md#q2) | Can welcome hosts export the RSVPs for the night they host? | Sofia Bianchi |
 | [Q3](../../handoffs/export-jobs.md#q3) | How many exports may one organizer start in an hour? | Marcus Chen |
+| [Q4](../../handoffs/export-jobs.md#q4) | Is the email enough, or should the screen also show a notice when an export is ready? | Marcus Chen |

@@ -42,7 +42,7 @@ are not.
 Streaming was the first choice, written down as decision 0002: no new
 moving parts, and RSVPs and venues finish well inside the limit. A spike
 streaming the photos from 2026 was cut off at 30 seconds. The browser saved
-a 640 MB zip that would not open, and showed no error. A broken file the
+a 210 MB zip that would not open, and showed no error. A broken file the
 night before the December social is worse than an error.
 
 ## Where we landed
