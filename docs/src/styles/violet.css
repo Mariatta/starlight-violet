@@ -14,3 +14,19 @@
   --sl-color-accent: #6d28d9;
   --sl-color-accent-high: #3b0f86;
 }
+
+/*
+ * The landing page's "For agents" button: a tinted pill with a dashed
+ * border, so it reads as a different audience from the other actions.
+ */
+.sl-link-button.agents-action {
+  background-color: var(--sl-color-accent-low);
+  border: 1px dashed var(--sl-color-accent);
+  color: var(--sl-color-accent-high);
+  font-family: var(--__sl-font-mono);
+}
+
+.sl-link-button.agents-action:hover {
+  border-style: solid;
+  color: var(--sl-color-white);
+}

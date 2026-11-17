@@ -16,6 +16,12 @@ hero:
     - text: See the examples
       link: /starlight-violet/examples/
       variant: minimal
+    - text: For agents
+      link: /starlight-violet/guide/writing/#pointing-your-agent-here
+      variant: secondary
+      icon: laptop
+      attrs:
+        class: agents-action
 ---
 
 <div class="notes-cards not-content">
@@ -23,6 +29,6 @@ hero:
 <a class="notes-card" href="front-matter/"><span class="notes-card-title">Front matter as data</span><span class="notes-card-description">Status, dates, issues and related pages are fields the build checks, and the page header shows them as badges and tables.</span></a>
 <a class="notes-card" href="guide/kinds/planning/"><span class="notes-card-title">Plans with tasks and PRs</span><span class="notes-card-description">A plan lists its tasks and pull requests in front matter. Link to them by number from any page, and split a long plan into a page per PR.</span></a>
 <a class="notes-card" href="guide/shortcodes/"><span class="notes-card-title">Shortcodes</span><span class="notes-card-description">One line such as ::planning or ::decisions becomes a table built from the notes, so an index never goes stale.</span></a>
-<a class="notes-card" href="guide/writing/"><span class="notes-card-title">A writing guide for agents</span><span class="notes-card-description">The guide ships in the package. Point your coding agent at it and its notes come out in the shape the site expects.</span></a>
+<a class="notes-card" href="guide/writing/#pointing-your-agent-here"><span class="notes-card-title">A writing guide for agents</span><span class="notes-card-description">The guide ships in the package. Point your coding agent at it and its notes come out in the shape the site expects.</span></a>
 <a class="notes-card" href="guide/extending/"><span class="notes-card-title">Extending</span><span class="notes-card-description">Define your own kinds, add Markdown plugins, generate pages, and keep the rest of Starlight as it is.</span></a>
 </div>
