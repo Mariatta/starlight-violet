@@ -32,13 +32,13 @@ import type { Link, PhrasingContent, Text } from 'mdast';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getOptions } from '../options';
-import { idFor, isServedFile, notesDir, pageUrl, staticUrl } from '../lib/notes';
+import { idFor, inNotes, isServedFile, notesDir, pageUrl, staticUrl } from '../lib/notes';
 import { anchorUrl, planFor, type Plan } from '../lib/plans';
 import { readDecisions } from '../lib/records';
-import { folderQuestions, folderRows, planRows, sectionUrl, siblingPages, type Sibling } from '../lib/references';
+import { folderQuestions, folderRows, planRows, ROW_NUMBER, sectionUrl, siblingPages, type Sibling } from '../lib/references';
 
 const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|#|\/)/i;
-const NUMBER = String.raw`\d+(?:\.\d+)*`;
+const NUMBER = ROW_NUMBER;
 /** A whole number part of a list, and the pattern that splits a list into them. */
 const IS_NUMBER = new RegExp(`^${NUMBER}$`);
 const NUMBER_PARTS = new RegExp(`(${NUMBER})`);
@@ -52,8 +52,11 @@ const UNIT = String.raw`(?!\.\d)(?!\s*(?:%|x\b|h\b|times?\b(?!\s+out\b)|days?\b|
  * so it cannot back off), so a count after its last number ("tasks 2 and
  * 3 days") rules out the whole list rather than leaving "tasks 2" linked.
  */
-const TASKS = new RegExp(String.raw`${NOT_AFTER}\b(Tasks?)(\s+)(?=(${LIST}))\3\b${UNIT}`, 'gi');
-const STAGES = new RegExp(String.raw`${NOT_AFTER}\b(Stages?)(\s+)(?=(${LIST}))\3\b${UNIT}`, 'gi');
+function listPattern(word: string): RegExp {
+  return new RegExp(String.raw`${NOT_AFTER}\b(${word}s?)(\s+)(?=(${LIST}))\3\b${UNIT}`, 'gi');
+}
+const TASKS = listPattern('Task');
+const STAGES = listPattern('Stage');
 /** "Q3", but not a quarter: "Q1 2027", "2027 Q1", "FY2027 Q1", "Q1 FY27", "Q1 FY2027". */
 const QUESTIONS = /(?<!(?:(?:19|20)\d\d|FY\s?\d\d)\s?)\bQ\d+\b(?!\s?(?:FY\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)/gi;
 /** A section number: "6", "6.4", "1a". */
@@ -88,7 +91,7 @@ function rewrite(url: string, dir: string, file?: string): string | undefined {
   if (EXTERNAL.test(url)) return;
   const [path, hash = ''] = url.split('#');
   const target = resolve(dir, decodeURIComponent(path));
-  if (!target.startsWith(notesDir())) return;
+  if (!inNotes(target)) return;
   if (target.endsWith('.md')) return (hash && anchorUrl(target, hash)) || pageUrl(idFor(target, notesDir())) + (hash ? `#${hash}` : '');
   if (isServedFile(target)) return staticUrl(target);
 }
@@ -273,7 +276,7 @@ export const FROM_PAGE = 'violetFromPage';
 
 /** What prose written in `file` links to; nothing is read until a text names something. */
 function targetsFor(file: string | undefined): Targets {
-  const dir = file && file.startsWith(notesDir()) ? dirname(file) : undefined;
+  const dir = file && inNotes(file) ? dirname(file) : undefined;
   const plan = once(() => planFor(file));
   const rows = once(() => (dir ? folderRows(file!) : new Map<string, Map<string, string>>()));
   return {
@@ -304,7 +307,7 @@ export function notesLinksPlugin(): MdastPluginEntry {
     };
     /** The notes file a node was written in: another page's, when a shortcode shows its text (`::questions`). */
     const writtenIn = (node: unknown): string | undefined => (node as any).data?.[FROM_PAGE] ?? file;
-    const folderOf = (from: string | undefined) => (from && from.startsWith(notesDir()) ? dirname(from) : undefined);
+    const folderOf = (from: string | undefined) => (from && inNotes(from) ? dirname(from) : undefined);
     const targets = new Map<string | undefined, Targets>([[file, targetsFor(file)]]);
     const targetsOf = (from: string | undefined) => {
       if (!targets.has(from)) targets.set(from, targetsFor(from));

@@ -7,7 +7,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Slugger from 'github-slugger';
-import { idFor, isBuilt, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
+import { idFor, inNotes, isBuilt, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
 import { cached, nodesOf, parse, textOf } from './source';
 
 export interface PlanTask {
@@ -111,31 +111,52 @@ const PR_HEADING = /^pr\s+(\d+)\b[:.\s-]*(.*)$/i;
 
 interface Heading {
   depth: number;
+  /** The text as written, with no smart punctuation: what kinds and plans match. */
   text: string;
+  /** The anchor the renderer gives it, made from the text as it renders. */
   slug: string;
+  /** Whether it is one of the page's own headings, not one inside a quote or list item. */
+  top: boolean;
+}
+
+type Block = { type: string; depth?: number; children?: Block[] };
+
+/** A tree's headings in document order, each with whether a quote or list item holds it. */
+function headingNodes(tree: Block): { node: Block; top: boolean }[] {
+  const found: { node: Block; top: boolean }[] = [];
+  const walk = (node: Block, top: boolean) => {
+    if (node.type === 'heading') found.push({ node, top });
+    const inside = top && node.type !== 'blockquote' && node.type !== 'listItem';
+    for (const child of node.children ?? []) walk(child, inside);
+  };
+  walk(tree, true);
+  return found;
 }
 
 /**
  * The body's headings with the anchors the renderer gives them, in document
  * order, as the site's parser reads the body: `#` and setext headings, at
- * any depth of nesting. The text is the heading's as it reads, without raw
- * HTML tags. A heading with no text gets no anchor.
+ * any depth of nesting. The anchor comes from the text as it renders (smart
+ * punctuation included), the text is as written; neither has raw HTML tags.
+ * A heading with no text gets no anchor.
  */
 export function headings(body: string): Heading[] {
   const slugger = new Slugger();
-  return nodesOf<{ type: string; depth: number; children: unknown[] }>(parse(body), 'heading')
-    .map((node) => ({ depth: node.depth, text: textOf(node as never, body).trim() }))
-    .filter(({ text }) => text)
-    .map(({ depth, text }) => ({ depth, text, slug: slugger.slug(text) }));
+  // Smart punctuation changes text, never blocks, so the two trees have the same headings in the same order.
+  const written = headingNodes(parse(body, { smart: false }));
+  return headingNodes(parse(body))
+    .map(({ node, top }, index) => ({ depth: node.depth!, top, shown: textOf(node as never, body).trim(), text: textOf(written[index].node as never, body).trim() }))
+    .filter(({ shown }) => shown)
+    .map(({ depth, top, shown, text }) => ({ depth, top, text, slug: slugger.slug(shown) }));
 }
 
 /**
  * The page's own sections: its level-two headings at the top level of the
  * body, not ones inside a quote, list item or directive, which belong to
- * that block. What a kind's `sections` rule checks.
+ * that block, as written. What a kind's `sections` rule checks.
  */
 export function sectionHeadings(body: string): string[] {
-  return (parse(body).children as { type: string; depth?: number }[])
+  return (parse(body, { smart: false }).children as Block[])
     .filter((node) => node.type === 'heading' && node.depth === 2)
     .map((node) => textOf(node as never, body).trim())
     // An empty ## is no section, as it has no anchor either.
@@ -166,10 +187,11 @@ export function readPlan(file: string): Plan | undefined {
   const prUrls = new Map<number, string>();
   for (const part of pageParts(id, data, splitTitle(body).body)) {
     if (part.pr !== undefined && part.title) {
-      prHeadings.set(part.pr, { depth: 1, text: part.title, slug: '' });
+      prHeadings.set(part.pr, { depth: 1, text: part.title, slug: '', top: true });
       prUrls.set(part.pr, part.url);
     }
-    for (const heading of part.anchors) {
+    // A heading quoted or in a list item is an example, not one of the plan's own.
+    for (const heading of part.anchors.filter(({ top }) => top)) {
       const task = TASK_HEADING.exec(heading.text);
       if (task) {
         taskHeadings.set(Number(task[1]), heading);
@@ -253,7 +275,7 @@ export function planFor(file: string | undefined, topic?: string | null): Plan |
     }
     return;
   }
-  if (!file || !file.startsWith(notesDir())) return;
+  if (!file || !inNotes(file)) return;
   return readPlan(file) ?? planInFolder(dirname(file));
 }
 

@@ -5,6 +5,7 @@ import { Badge } from '@astrojs/starlight/components';
 import { STATUS_VARIANT } from '../kinds/handoff';
 import { statusLabel } from '../kinds';
 import { readDecisions } from '../lib/records';
+import { questionId } from '../lib/references';
 import { getOptions } from '../options';
 
 interface Props {
@@ -38,7 +39,7 @@ const decisionUrls = new Map(readDecisions().map((d) => [d.number, d.url]));
       <thead><tr><th></th><th>Question</th><th>Blocks</th><th>Owner</th><th>Answer</th></tr></thead>
       <tbody>
         {data.open_questions.map((q) => (
-          <tr id={q.id.toLowerCase()} class={q.answer ? 'answered' : 'open'}>
+          <tr id={questionId(q.id)} class={q.answer ? 'answered' : 'open'}>
             <td><code>{q.id}</code></td>
             <td set:html={q.question} />
             <td set:html={q.blocks ?? ''} />

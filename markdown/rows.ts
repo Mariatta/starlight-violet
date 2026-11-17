@@ -17,11 +17,17 @@ interface Element {
   type: string;
   tagName?: string;
   value?: string;
+  properties?: Record<string, unknown>;
   children?: Element[];
 }
 
+/**
+ * A rendered cell's text, read as `cellText` reads its source: text, with
+ * footnote references and raw HTML left out, so the id given here is the
+ * one the links were worked out for.
+ */
 function text(node: Element | undefined): string {
-  if (!node) return '';
+  if (!node || node.properties?.dataFootnoteRef !== undefined) return '';
   return node.type === 'text' ? (node.value ?? '') : (node.children ?? []).map(text).join('');
 }
 

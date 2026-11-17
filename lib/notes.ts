@@ -4,7 +4,7 @@
  * Everything here runs at build time on the Node side.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import { getOptions } from '../options';
 
@@ -21,6 +21,12 @@ export interface Page {
 
 export function notesDir(): string {
   return getOptions().notesDir;
+}
+
+/** Whether a path is inside the notes folder: `notes/a.md`, not `notes-archive/a.md`. */
+export function inNotes(path: string): boolean {
+  const rel = relative(notesDir(), path);
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
 }
 
 /** A file's path relative to the notes folder. */
@@ -52,7 +58,7 @@ export function listMarkdown(dir: string): string[] {
 /** Whether the site builds a page from this notes file: it is in the notes, not skipped, and not the landing page. */
 export function isBuilt(file: string): boolean {
   const rel = notesRel(file);
-  return file.startsWith(notesDir()) && !isSkipped(rel) && rel !== LANDING;
+  return inNotes(file) && !isSkipped(rel) && rel !== LANDING;
 }
 
 /** Every Markdown page of the notes folder the site keeps. */

@@ -24,22 +24,26 @@ const trees = new Map<string, Root>();
 /**
  * A body's Markdown tree, read by the same parser and features the site
  * renders with, so headings, tables and parts are found where the page has
- * them. The last few hundred trees are kept, since one body is asked about
- * many times.
+ * them. With `smart: false`, smart punctuation is left off, so text reads
+ * as it was written (`What's next`, not `What’s next`): what a page's
+ * headings are compared with. The last few hundred trees are kept, since
+ * one body is asked about many times.
  */
-export function parse(body: string, { keep = true } = {}): Root {
-  let tree = trees.get(body);
+export function parse(body: string, { keep = true, smart = true } = {}): Root {
+  const key = smart ? body : `\0${body}`;
+  let tree = trees.get(key);
   if (tree) {
-    trees.delete(body);
+    trees.delete(key);
   } else {
     // Bodies come with their front matter already removed, and often their title line too,
     // so a leading `---` is a thematic break, not front matter.
-    const features = { ...((store[FEATURES] as Features | undefined) ?? { gfm: true, directive: true }), frontmatter: false };
+    const features: Features = { ...((store[FEATURES] as Features | undefined) ?? { gfm: true, directive: true }), frontmatter: false };
+    if (!smart) features.smartPunctuation = false;
     tree = markdownToMdast(body, { features }) as Root;
     // A one-off text, such as a shortcode's table, is not worth a place among the bodies.
     if (!keep) return tree;
   }
-  trees.set(body, tree);
+  trees.set(key, tree);
   if (trees.size > 300) trees.delete(trees.keys().next().value!);
   return tree;
 }
@@ -86,6 +90,22 @@ export function nodesOf<T>(tree: { children?: unknown[] }, type: string): T[] {
 }
 
 const memo = new Map<string, { mtime: number; value: unknown }>();
+/**
+ * Modification times read during the current turn of the event loop. One
+ * render asks about the same files many times over; a file saved later is
+ * read afresh on the next turn, so an edit is never missed.
+ */
+const mtimes = new Map<string, number>();
+
+function mtimeOf(path: string): number {
+  let mtime = mtimes.get(path);
+  if (mtime === undefined) {
+    if (mtimes.size === 0) setImmediate(() => mtimes.clear());
+    mtime = statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? -1;
+    mtimes.set(path, mtime);
+  }
+  return mtime;
+}
 /** Entries kept at most; the least recently used goes first, so a long dev session does not grow it forever. */
 const LIMIT = 20000;
 
@@ -95,7 +115,7 @@ const LIMIT = 20000;
  * every handoff field), and each asks about the same few files.
  */
 export function cached<T>(path: string, key: string, compute: () => T): T {
-  const mtime = statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? -1;
+  const mtime = mtimeOf(path);
   const id = `${key}:${path}`;
   const hit = memo.get(id);
   memo.delete(id);

@@ -7,7 +7,7 @@
  */
 import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
-import { idFor, isBuilt, notesDir, pageUrl, readPage, splitTitle, type Page } from './notes';
+import { idFor, inNotes, isBuilt, notesDir, pageUrl, readPage, splitTitle, type Page } from './notes';
 import { anchorUrl, headings, isSplit, pageParts, planFor } from './plans';
 import { cached, nodesOf, parse, textOf } from './source';
 
@@ -19,7 +19,9 @@ const ROW_KINDS: Record<string, 'task' | 'stage' | 'step' | 'phase'> = {
   step: 'step',
   phase: 'phase',
 };
-const ROW_LABEL = /^\d+(?:\.\d+)*$/;
+/** A row number, `1` or `1.2`: what a numbered row's first cell holds and what prose such as "task 1.2" names. */
+export const ROW_NUMBER = String.raw`\d+(?:\.\d+)*`;
+const ROW_LABEL = new RegExp(`^${ROW_NUMBER}$`);
 
 /** The anchor a numbered table row gets: `task-1-2`, `stage-1`. */
 export function rowId(kind: string, label: string): string {
@@ -36,6 +38,27 @@ export function isRowLabel(cell: string): boolean {
   return ROW_LABEL.test(cell.trim());
 }
 
+/**
+ * A table cell's text as rows.ts reads it rendered: its text and code, with
+ * footnote references left out (they render as their number, not their
+ * label) and no raw HTML. Both sides read a cell this way, so a link worked
+ * out here names the id the rendered row gets.
+ */
+export function cellText(node: { type: string; children?: unknown[] }): string {
+  if (node.type === 'footnoteReference') return '';
+  if (!node.children || node.type === 'textDirective') return textOf(node as never);
+  return (node.children as { type: string; children?: unknown[] }[]).map(cellText).join('');
+}
+
+/** A handoff question's anchor on its handoff, `q3` for Q3: the id of its row there. */
+export function questionId(id: string): string {
+  return id.toLowerCase();
+}
+
+/** The address of a handoff question's row, on the handoff at `url`. */
+export function questionUrl(url: string, id: string): string {
+  return `${url}#${encodeURIComponent(questionId(id))}`;
+}
 
 function page(file: string): Page {
   return cached(file, 'page', () => readPage(file));
@@ -64,11 +87,11 @@ export function tableRows(body: string): Map<string, Map<string, string>> {
   const rows = new Map<string, Map<string, string>>();
   type Node = { type: string; children?: Node[] };
   for (const table of nodesOf<Node>(parse(body), 'table')) {
-    const [header, ...body] = table.children ?? [];
-    const kind = rowKind(textOf(header?.children?.[0] ?? { type: 'text' }));
+    const [header, ...lines] = table.children ?? [];
+    const kind = rowKind(cellText(header?.children?.[0] ?? { type: 'text' }));
     if (!kind) continue;
-    for (const row of body) {
-      const label = textOf(row.children?.[0] ?? { type: 'text' }).trim();
+    for (const row of lines) {
+      const label = cellText(row.children?.[0] ?? { type: 'text' }).trim();
       if (!isRowLabel(label)) continue;
       if (!rows.has(kind)) rows.set(kind, new Map());
       if (!rows.get(kind)!.has(label)) rows.get(kind)!.set(label, rowId(kind, label));
@@ -82,28 +105,32 @@ function renderedBodies(file: string): { url: string; body: string }[] {
   const { data, body } = page(file);
   const rest = splitTitle(body).body;
   const url = pageUrl(idFor(file, notesDir()));
-  return isSplit(data) && file.startsWith(notesDir()) ? pageParts(idFor(file, notesDir()), data, rest) : [{ url, body: rest }];
+  return isSplit(data) && inNotes(file) ? pageParts(idFor(file, notesDir()), data, rest) : [{ url, body: rest }];
 }
 
 /**
  * A page's numbered table rows as it renders: for each row its kind, label
- * and the address of its anchor. A row whose anchor a heading of the page
- * already has gets no id of its own (see rows.ts) and is reached at that
- * heading instead. Worked out once per file, for rows.ts and the links.
+ * and the address of its anchor, always on the part that holds the row (a
+ * heading on another part of a split page is another page). A row whose
+ * anchor a heading already has gets no id of its own (see rows.ts) and is
+ * reached at its part's heading of that name, or else at its part. Worked
+ * out once per file, for rows.ts and the links.
  */
 function pageRows(file: string): { kind: string; label: string; id: string; url: string; own: boolean }[] {
   return cached(file, 'rows', () => {
-    const taken = renderedAnchors(file);
-    const rows: { kind: string; label: string; id: string; url: string; own: boolean }[] = [];
+    const found: { kind: string; label: string; id: string; part: string; heading: boolean }[] = [];
     for (const part of renderedBodies(file)) {
+      const taken = new Set(headings(part.body).map(({ slug }) => slug));
       for (const [kind, labels] of tableRows(part.body)) {
-        for (const [label, id] of labels) {
-          const own = !taken.has(id);
-          rows.push({ kind, label, id, own, url: own ? `${part.url}#${id}` : (anchorUrl(file, id) ?? `${part.url}#${id}`) });
-        }
+        for (const [label, id] of labels) found.push({ kind, label, id, part: part.url, heading: taken.has(id) });
       }
     }
-    return rows;
+    // rows.ts does not know which part it renders, so an id a heading takes on one part is left off the rows of every part.
+    const taken = new Set(found.filter((row) => row.heading).map((row) => row.id));
+    return found.map(({ kind, label, id, part, heading }) => {
+      const own = !taken.has(id);
+        return { kind, label, id, own, url: own || heading ? `${part}#${id}` : part };
+    });
   });
 }
 
@@ -173,7 +200,7 @@ export function folderQuestions(file: string): Map<string, string> {
       // Ids are matched in any case: prose may write "q3" for Q3.
       const id = String(question?.id ?? '').toUpperCase();
       if (!id) continue;
-      const anchor = `${url}#${id.toLowerCase()}`;
+      const anchor = questionUrl(url, id);
       if (target === file) own.set(id, anchor);
       else shared.set(id, shared.has(id) && shared.get(id) !== anchor ? undefined : anchor);
     }
@@ -216,13 +243,4 @@ export function planRows(plan: string): Map<string, Map<string, string>> {
     if (!found.get(kind)!.has(label)) found.get(kind)!.set(label, url);
   }
   return found;
-}
-
-/**
- * The heading anchors a page renders, which a table row's anchor must not
- * repeat: on a split page, those of its parts, whose own `# ` lines are
- * page titles rather than headings.
- */
-export function renderedAnchors(file: string): Set<string> {
-  return cached(file, 'anchors', () => new Set(renderedBodies(file).flatMap(({ body }) => headings(body).map(({ slug }) => slug))));
 }

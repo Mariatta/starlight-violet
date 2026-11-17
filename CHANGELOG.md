@@ -11,6 +11,7 @@
 - A handoff's next steps are numbered like Starlight's Steps (`sl-steps`); before, the list had a class no style matched.
 - A reference inside emphasis inside a link (`[the **SPEC**](SPEC.md)`), or anywhere inside a reference-style link (`[SPEC][spec]`), is no longer linked a second time; only text directly in an inline link was skipped before.
 - "Task 3" and "Stage 2" no longer link after "this", "that", "these", "those", "each", "every", "any", "which" or "what", so "run each Task 3 check twice" stays text, however many spaces or line breaks come between. 0.2.2 linked "Task 3" after any word.
+- A file in a folder beside the notes whose name starts with the notes folder's (`notes-archive/` beside `notes/`) is no longer taken for a notes page, so a relative link to it is left as written rather than turned into an address the site does not have.
 
 ## 0.2.2 (2026-11-13)
 

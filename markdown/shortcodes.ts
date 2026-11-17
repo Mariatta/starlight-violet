@@ -11,6 +11,7 @@ import { getOptions } from '../options';
 import { idFor, issueRefs, issueUrl, notesDir, notesPages, notesRel, pageUrl, readKind, readPage, sectionDescription, sections, slugify, splitTitle, words, type PageInfo } from '../lib/notes';
 import { planFor, planningFolder, type Plan } from '../lib/plans';
 import { readDecisions, readHandoffs } from '../lib/records';
+import { questionUrl } from '../lib/references';
 import { parse, textOf } from '../lib/source';
 import { FROM_PAGE, IN_ANCHOR, markAnchoredText } from './links';
 
@@ -273,7 +274,7 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
     // Each id as the header shows it, in code, linking to its row there: built as a node, so no id needs escaping.
     for (const [index, q] of questions.entries()) {
       const id = String(q.id);
-      const link = { type: 'link', url: `${handoff.url}#${encodeURIComponent(id.toLowerCase())}`, children: [{ type: 'inlineCode', value: id }] };
+      const link = { type: 'link', url: questionUrl(handoff.url, id), children: [{ type: 'inlineCode', value: id }] };
       shown.children[index + 1].children[0] = { type: 'tableCell', children: [link] } as MdastNode;
     }
     return shown;
@@ -335,11 +336,17 @@ export function shortcodesPlugin(): MdastPluginEntry {
     const file = fileURL ? fileURLToPath(fileURL) : undefined;
     return {
       name: 'notes-shortcodes',
-      leafDirective(node) {
+      leafDirective(node, ctx) {
         const render = SHORTCODES[node.name];
         if (!render) return;
         const out = render(node.attributes ?? {}, file);
-        return typeof out === 'string' ? { raw: `${out}\n` } : out;
+        if (typeof out !== 'string') return out;
+        // The links plugin marks the text of the page's own raw <a> before any shortcode runs, so text
+        // inside a raw <a> this shortcode writes (a page's description, say) is marked here.
+        if (!/<a[\s>]/i.test(out)) return { raw: `${out}\n` };
+        const nodes = (parse(out, { keep: false }).children as MdastNode[]).map(unplaced);
+        markAnchoredText({ type: 'root', children: nodes }, (n) => (n.data = { ...n.data, [IN_ANCHOR]: true }));
+        ctx.replaceNode(node, nodes as never);
       },
     };
   };
