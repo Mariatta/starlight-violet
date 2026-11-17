@@ -11,6 +11,9 @@ describe('questions', () => {
   test('Q3 links to its row on the folder handoff', () => assert.deepEqual(at('QA'), ['Q3 → /work/handoff/#q3']));
   test('Q3 to Q9 links both ends', () => assert.deepEqual(at('QB'), ['Q3 → /work/handoff/#q3', 'Q9 → /work/handoff/#q9']));
   test('a lowercase q4 links', () => assert.deepEqual(at('QC'), ['q4 → /work/handoff/#q4']));
+  test('a lowercase q in an address or a name is not a question', () => assert.deepEqual(at('QF'), []));
+  test('a capital Q is a question before a dash or a dot', () =>
+    assert.deepEqual(at('QG'), ['Q3 → /work/handoff/#q3', 'Q9 → /work/handoff/#q9', 'Q3 → /work/handoff/#q3']));
   test('a quarter is not a question', () => {
     assert.deepEqual(at('QD'), []);
     assert.deepEqual(at('QE'), []);
@@ -32,6 +35,17 @@ describe('pages and sections', () => {
     for (const label of ['PG', 'PH', 'PI', 'PJ']) assert.deepEqual(at(label), [], label);
   });
   test('a length of time is not a section', () => assert.deepEqual(at('PK'), ['SPEC → /work/spec/']));
+  test('a page naming itself is not linked, though its sections are', () =>
+    assert.deepEqual(at('SF', 'work/spec'), ['SPEC 3.2 → /work/spec/#32-exports']));
+  test('on the page itself, a section after one it lacks still links', () => assert.deepEqual(at('SG', 'work/spec'), ['§3.2 → /work/spec/#32-exports']));
+  test('on a split page, its own name with a section links another part', () =>
+    assert.deepEqual(at('GA', 'split/guide/3-testing'), ['GUIDE §6 → /split/guide/6-storage/']));
+  test("on a split page, a part's own heading is its section, at the part", () => {
+    assert.deepEqual(at('SC', 'split/notes'), ['GUIDE §3 → /split/guide/3-testing/']);
+    assert.deepEqual(at('SD', 'split/notes'), ['GUIDE §6 → /split/guide/6-storage/']);
+  });
+  test('on a split page, a heading is anchored as its part renders it', () =>
+    assert.deepEqual(at('SE', 'split/notes'), ['GUIDE §6.1 → /split/guide/6-storage/#61-buckets']));
 });
 
 describe('tasks and table rows', () => {

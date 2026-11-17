@@ -4,7 +4,7 @@ title: Prose
 
 ## Questions
 
-QA: Q3 here. QB: Q3 to Q9 here. QC: q4 here. QD: Q1 2027 is a quarter. QE: FY2027 Q1 too.
+QA: Q3 here. QB: Q3 to Q9 here. QC: q4 here. QD: Q3 2027 is a quarter. QE: FY2027 Q4 too, and Q3-2027 or Q9-FY27. QF: ?q3=foo, #q4, q9.json and q3-flag are not questions. QG: Q3-Q9 and Q3.1 are.
 
 ## Pages and sections
 
