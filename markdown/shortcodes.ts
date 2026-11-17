@@ -261,7 +261,7 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
     const handoff = readHandoffs().find((h) => h.id === of || h.id.endsWith(`/${of}`));
     if (!handoff) return `> No handoff with id \`${of ?? ''}\`.`;
     const questions = (handoff.data.open_questions as Record<string, string>[] | undefined) ?? [];
-    const rows = questions.map((q) => ['id', q.question, q.blocks ?? '', q.answer ?? '*open*']);
+    const rows = questions.map((q) => ['id', q.question, q.blocks ?? '', q.answer || '*open*']);
     const markdown = table(['', 'Question', 'Blocks', 'Answer'], rows);
     if (rows.length === 0) return markdown;
     // The header renders blocks and answers with raw HTML as text, and the question as Markdown.

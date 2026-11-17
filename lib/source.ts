@@ -19,31 +19,34 @@ export function setParseFeatures(features: Features): void {
   store[FEATURES] = features;
 }
 
+/** Every cache below, so a change of features empties them all. */
+const caches = new Set<Lru<unknown, unknown>>();
+
 /**
- * Maps that hold what one turn of the event loop worked out, emptied at the
- * end of it. One render asks about the same bodies many times, but holding
- * every body's tree for a whole dev session would keep the notes in memory
- * many times over; what is worth keeping longer is kept by `cached`, against
- * the file's modification time.
+ * A map that keeps at most `limit` entries, dropping the least recently
+ * used first, so a long dev session does not grow it forever.
  */
-const forTurn = new Set<Map<unknown, unknown>>();
-let clearing = false;
-
-/** A map emptied at the end of each turn of the event loop. */
-export function turnMap<K, V>(): Map<K, V> {
-  const map = new Map<K, V>();
-  forTurn.add(map as Map<unknown, unknown>);
-  return map;
-}
-
-/** Empty every turn map at the end of this turn. Call before adding to one. */
-export function clearAfterTurn(): void {
-  if (clearing) return;
-  clearing = true;
-  setImmediate(() => {
-    clearing = false;
-    for (const map of forTurn) map.clear();
-  });
+export class Lru<K, V> {
+  private readonly map = new Map<K, V>();
+  constructor(private readonly limit: number) {
+    caches.add(this as Lru<unknown, unknown>);
+  }
+  get(key: K): V | undefined {
+    const value = this.map.get(key);
+    if (value !== undefined) {
+      this.map.delete(key);
+      this.map.set(key, value);
+    }
+    return value;
+  }
+  set(key: K, value: V): void {
+    this.map.delete(key);
+    this.map.set(key, value);
+    if (this.map.size > this.limit) this.map.delete(this.map.keys().next().value!);
+  }
+  clear(): void {
+    this.map.clear();
+  }
 }
 
 let seen: unknown;
@@ -56,21 +59,24 @@ let seen: unknown;
 function freshen(): void {
   if (store[FEATURES] === seen) return;
   seen = store[FEATURES];
-  for (const map of forTurn) map.clear();
-  memo.clear();
+  for (const cache of caches) cache.clear();
 }
 
-const trees = turnMap<string, Root>();
+/**
+ * Bodies' trees, two a body (as written and as rendered). A render asks
+ * about the same few bodies (the page, its folder's SPEC and PLAN) many
+ * times, across awaits; a couple of hundred covers that without holding
+ * every note's tree for a whole dev session.
+ */
+const trees = new Lru<string, Root>(200);
 
 /**
  * A body's Markdown tree, read by the same parser and features the site
  * renders with, so headings, tables and parts are found where the page has
  * them. With `smart: false`, smart punctuation is left off, so text reads
  * as it was written (`What's next`, not `What’s next`): what a page's
- * headings are compared with. Trees are kept until the end of the turn of
- * the event loop (see `turnMap`), since a render asks about one body many
- * times; with `keep: false` the tree is not kept, and `position: false`
- * leaves out its positions.
+ * headings are compared with. With `keep: false` the tree is not kept, and
+ * `position: false` leaves out its positions.
  */
 export function parse(body: string, { keep = true, smart = true, position = true } = {}): Root {
   freshen();
@@ -81,13 +87,12 @@ export function parse(body: string, { keep = true, smart = true, position = true
   // A one-off text, such as a shortcode's table, is not worth a place among the bodies,
   // and may go without positions, which would point into a source no page has.
   if (!keep) return markdownToMdast(body, { features, position }) as Root;
-  clearAfterTurn();
   const key = smart ? body : `\0${body}`;
   let tree = trees.get(key);
-  if (tree) trees.delete(key);
-  else tree = markdownToMdast(body, { features }) as Root;
-  trees.set(key, tree);
-  if (trees.size > 600) trees.delete(trees.keys().next().value!);
+  if (!tree) {
+    tree = markdownToMdast(body, { features }) as Root;
+    trees.set(key, tree);
+  }
   return tree;
 }
 
@@ -132,7 +137,8 @@ export function nodesOf<T>(tree: { children?: unknown[] }, type: string): T[] {
   return found;
 }
 
-const memo = new Map<string, { mtime: number; value: unknown }>();
+/** Values worked out from files; at most this many are kept, the least recently used going first. */
+const memo = new Lru<string, { mtime: number; value: unknown }>(20000);
 /**
  * Modification times read during the current turn of the event loop. One
  * render asks about the same files many times over; a file saved later is
@@ -149,8 +155,6 @@ function mtimeOf(path: string): number {
   }
   return mtime;
 }
-/** Entries kept at most; the least recently used goes first, so a long dev session does not grow it forever. */
-const LIMIT = 20000;
 
 /**
  * A value worked out from a file or folder, worked out again only when its
@@ -162,13 +166,8 @@ export function cached<T>(path: string, key: string, compute: () => T): T {
   const mtime = mtimeOf(path);
   const id = `${key}:${path}`;
   const hit = memo.get(id);
-  memo.delete(id);
-  if (hit && hit.mtime === mtime) {
-    memo.set(id, hit);
-    return hit.value as T;
-  }
+  if (hit && hit.mtime === mtime) return hit.value as T;
   const value = compute();
   memo.set(id, { mtime, value });
-  if (memo.size > LIMIT) memo.delete(memo.keys().next().value!);
   return value;
 }

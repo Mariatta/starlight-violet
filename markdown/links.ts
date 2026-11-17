@@ -17,8 +17,8 @@
  * - A capitalised page of the same folder, by name: "SPEC" or "PLAN.md", with
  *   a section when one follows ("PLAN.md §6 and §6.4", "SPEC 3.2", "SPEC
  *   section 7", "SPEC principle 2", which is the Principles section).
- * - "task 1.2", "Stage 1" or "stages 6 and 7" anywhere in a plan's folder
- *   link to that row of the plan's numbered tables (a `#` column numbers
+ * - "task 1.2", "Stage 1" or "Stages 6 and 7" anywhere in a plan's folder
+ *   (in lower case, only a dotted number) link to that row of the plan's numbered tables (a `#` column numbers
  *   tasks, a `Stage` column stages; rows.ts gives the rows their anchors).
  *
  * - An attribute list right after a link, `[HTML](mockup.html){ target=_blank }`,
@@ -129,12 +129,13 @@ interface Match {
 
 /**
  * "word N, M and K" to text and links, linking each number `urls` knows;
- * undefined when none does. In lower case only a dotted number links ("task
- * 1.2"): "task 2" or "stage 1" in a sentence is as often a plain count.
+ * undefined when none does. With `dottedInLowerCase`, in lower case only a
+ * dotted number links ("task 1.2"): "task 2" or "stage 1" in a sentence is
+ * as often a plain count. "decision 0011" is never one, so links as written.
  */
-function numbered(match: RegExpMatchArray, urls: Map<string, string>): Match | undefined {
+function numbered(match: RegExpMatchArray, urls: Map<string, string>, dottedInLowerCase = false): Match | undefined {
   const nodes: PhrasingContent[] = [text(match[1] + match[2])];
-  const lower = /^[a-z]/.test(match[1]);
+  const lower = dottedInLowerCase && /^[a-z]/.test(match[1]);
   let linked = false;
   for (const part of match[3].split(NUMBER_PARTS).filter(Boolean)) {
     const url = IS_NUMBER.test(part) && (!lower || part.includes('.')) ? urls.get(part) : undefined;
@@ -252,12 +253,12 @@ function mentions(pattern: RegExp, value: string): boolean {
 /** Split a text value into text and links; undefined when nothing links. */
 function autolink(value: string, targets: Targets): PhrasingContent[] | undefined {
   const matches: Match[] = [];
-  const each = (pattern: RegExp, urls: () => Map<string, string>) => {
+  const each = (pattern: RegExp, urls: () => Map<string, string>, dottedInLowerCase = false) => {
     if (!mentions(pattern, value) || urls().size === 0) return;
-    for (const m of value.matchAll(pattern)) matches.push(...[numbered(m, urls())].filter((x) => x !== undefined));
+    for (const m of value.matchAll(pattern)) matches.push(...[numbered(m, urls(), dottedInLowerCase)].filter((x) => x !== undefined));
   };
-  each(TASKS, targets.tasks);
-  each(STAGES, targets.stages);
+  each(TASKS, targets.tasks, true);
+  each(STAGES, targets.stages, true);
   each(DECISIONS, targets.decisions);
   if (mentions(QUESTIONS, value)) matches.push(...questionRefs(value, targets.questions()));
   if (CAPITALS.test(value)) matches.push(...pageRefs(value, targets.pages(), targets.self));

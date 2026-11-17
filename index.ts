@@ -223,21 +223,26 @@ export default function violet(options: VioletOptions): StarlightPlugin {
               processor.options.mdastPlugins.push(stepsPlugin(), shortcodesPlugin(), notesLinksPlugin(), rowMarksPlugin(), ...resolved.mdastPlugins);
               processor.options.hastPlugins.push(rowAnchorsPlugin());
               processor.options.features.directive = true;
-              // Headings, tables and plan parts are read with the same parser and features the pages render with,
-              // and a plain field renders with them and the same plugins.
-              const features = {
-                gfm: astroSetupConfig.markdown.gfm !== false,
-                smartPunctuation: astroSetupConfig.markdown.smartypants !== false,
-                ...processor.options.features,
-              };
-              setParseFeatures(features);
-              setPipeline({ features, mdastPlugins: processor.options.mdastPlugins, hastPlugins: processor.options.hastPlugins });
               if (resolved.kinds.includes('decision')) {
                 injectRoute({ pattern: '/decisions', entrypoint: `${PACKAGE}/routes/decisions.astro`, prerender: true });
               }
               if (resolved.files) {
                 injectRoute({ pattern: `${resolved.files.prefix}[...path]`, entrypoint: `${PACKAGE}/routes/files.ts`, prerender: true });
               }
+            },
+            'astro:config:done'({ config: doneConfig }) {
+              // Headings, tables and plan parts are read with the same parser and features the pages render with,
+              // and a plain field renders with them and the same plugins. Read once every integration has set
+              // up, so one that turns on a feature after Violet (math, smart punctuation) is counted.
+              const processor = doneConfig.markdown.processor;
+              if (!isSatteriProcessor(processor)) return;
+              const features = {
+                gfm: doneConfig.markdown.gfm !== false,
+                smartPunctuation: doneConfig.markdown.smartypants !== false,
+                ...processor.options.features,
+              };
+              setParseFeatures(features);
+              setPipeline({ features, mdastPlugins: processor.options.mdastPlugins, hastPlugins: processor.options.hastPlugins });
             },
           },
         });

@@ -8,7 +8,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Slugger from 'github-slugger';
 import { idFor, inNotes, isBuilt, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
-import { cached, clearAfterTurn, parse, textOf, turnMap } from './source';
+import { cached, Lru, parse, textOf } from './source';
 
 export interface PlanTask {
   number: number;
@@ -67,22 +67,20 @@ export function isSplit(data: Record<string, unknown>): boolean {
   return data.split === true;
 }
 
-const partsMemo = turnMap<string, Part[]>();
+const partsMemo = new Lru<string, Part[]>(100);
 
 /**
  * The parts of a page; `body` is without its title heading. Worked out
- * once per page and body in a turn of the event loop: the loader, the plan
- * reader, the anchors and the row links all ask for the parts of the same
- * plans.
+ * once per page and body: the loader, the plan reader, the anchors and the
+ * row links all ask for the parts of the same plans.
  */
 export function pageParts(id: string, data: Record<string, unknown>, body: string): Part[] {
-  clearAfterTurn();
   const key = `${id}\0${isSplit(data)}\0${body}`;
   let parts = partsMemo.get(key);
-  if (parts) partsMemo.delete(key);
-  else parts = splitParts(id, data, body);
-  partsMemo.set(key, parts);
-  if (partsMemo.size > 300) partsMemo.delete(partsMemo.keys().next().value!);
+  if (!parts) {
+    parts = splitParts(id, data, body);
+    partsMemo.set(key, parts);
+  }
   return parts;
 }
 
@@ -159,12 +157,12 @@ interface Heading {
 
 type Block = { type: string; depth?: number; children?: Block[] };
 
-/** A tree's headings in document order, each with whether a quote or list item holds it. */
+/** A tree's headings in document order, each with whether a quote, list item or `:::` block holds it. */
 function headingNodes(tree: Block): { node: Block; top: boolean }[] {
   const found: { node: Block; top: boolean }[] = [];
   const walk = (node: Block, top: boolean) => {
     if (node.type === 'heading') found.push({ node, top });
-    const inside = top && node.type !== 'blockquote' && node.type !== 'listItem';
+    const inside = top && node.type !== 'blockquote' && node.type !== 'listItem' && node.type !== 'containerDirective';
     for (const child of node.children ?? []) walk(child, inside);
   };
   walk(tree, true);
@@ -245,7 +243,7 @@ export function readPlan(file: string): Plan | undefined {
       prHeadings.set(part.pr, { depth: 1, text: part.title, source: part.source ?? part.title, slug: '', top: true });
       prUrls.set(part.pr, part.url);
     }
-    // A heading quoted or in a list item is an example, not one of the plan's own.
+    // A heading quoted, in a list item or in a `:::` block (an aside's example) is not one of the plan's own.
     for (const heading of part.anchors.filter(({ top }) => top)) {
       const task = TASK_HEADING.exec(heading.text);
       if (task) {
@@ -265,7 +263,7 @@ export function readPlan(file: string): Plan | undefined {
   const tasks = rawTasks.map((raw) => {
     const number = Number(raw.number);
     const heading = taskHeadings.get(number);
-    if (!heading) problems.push(`task ${number} has no "Task ${number}" heading`);
+    if (!heading) problems.push(`task ${number} has no "Task ${number}" heading, outside a ::: block, a quote or a list`);
     return {
       number,
       title: String(raw.title ?? (heading ? headingTitle(TASK_HEADING, heading) : '')),
@@ -283,7 +281,10 @@ export function readPlan(file: string): Plan | undefined {
   const prs = rawPrs.map((raw) => {
     const number = Number(raw.number);
     const heading = prHeadings.get(number);
-    if (rawPrs.length > 0 && !heading) problems.push(`PR ${number} has no "PR ${number}" heading`);
+    if (rawPrs.length > 0 && !heading) {
+      // A split page's parts start at its own # headings; one inside a ::: block belongs to that block.
+      problems.push(`PR ${number} has no "PR ${number}" heading${isSplit(data) ? ` (a "# PR ${number}" heading inside a ::: block, a quote or a list does not start a part)` : ''}`);
+    }
     const listed = ((raw.tasks as number[] | undefined) ?? []).map(Number);
     for (const n of listed) if (!declared.has(n)) problems.push(`PR ${number} lists task ${n}, which is not in tasks`);
     return {
