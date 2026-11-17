@@ -22,7 +22,8 @@ docs-ci:
 # Violet's tests: build the site in test/site from the notes in test/notes,
 # with Violet from this checkout, then check the pages it wrote (test/*.test.mjs).
 # The test site uses docs' packages, linked in.
-test: docs-install test-run
+test: docs-install
+	$(MAKE) test-run
 
 # CI: docs-ci has installed the packages already.
 test-ci: test-run
@@ -30,7 +31,8 @@ test-ci: test-run
 # Tests the copy of Violet in docs/node_modules, which make test reinstalls first;
 # on its own, after editing Violet, it tests the copy from the last install.
 test-run:
-	ln -sfn ../../docs/node_modules test/site/node_modules
+	rm -rf test/site/node_modules
+	ln -s ../../docs/node_modules test/site/node_modules
 	cd test/site && npx astro build
 	cd docs && npx tsc --noEmit -p ../test/site
 	node --test 'test/*.test.mjs'

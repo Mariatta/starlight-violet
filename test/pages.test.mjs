@@ -2,8 +2,8 @@
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { describe, test } from 'node:test';
-import { html, ids, links, linksIn, main, SITE } from './helpers.mjs';
+import { before, describe, test } from 'node:test';
+import { BASE, DIST, html, ids, links, linksIn, main, ORIGIN } from './helpers.mjs';
 
 describe('table rows', () => {
   test('numbered rows get anchors', () => {
@@ -34,22 +34,22 @@ describe('pages', () => {
     assert.match(page, /Between the rules/);
     assert.match(page, /After the rules/);
   });
-  test('a skipped page is not built', () => assert.ok(!existsSync(join(SITE, 'dist/work/draft'))));
+  test('a skipped page is not built', () => assert.ok(!existsSync(join(DIST, 'work/draft'))));
 });
 
-const ORIGIN = 'https://example.com';
-
 describe('the whole site', () => {
-  const dist = join(SITE, 'dist');
   const pages = [];
-  const walk = (dir) => {
-    for (const name of readdirSync(dir)) {
-      const path = join(dir, name);
-      if (statSync(path).isDirectory()) walk(path);
-      else if (name === 'index.html') pages.push(relative(dist, dir));
-    }
-  };
-  walk(dist);
+  before(() => {
+    html('');
+    const walk = (dir) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (name === 'index.html') pages.push(relative(DIST, dir));
+      }
+    };
+    walk(DIST);
+  });
 
   test('no page has an id twice', () => {
     for (const page of pages) {
@@ -61,20 +61,26 @@ describe('the whole site', () => {
     }
   });
   test('every link inside the site reaches a page and an anchor it has', () => {
+    let checked = 0;
     for (const page of pages) {
       // Every link is read as the browser reads it on that page: same-page anchors and relative links too.
-      const base = new URL(`${page}/`.replace(/^\//, ''), ORIGIN);
-      for (const { href } of links(page)) {
-        const url = new URL(href, base);
+      const base = new URL(`${BASE}${page}/`.replace(/\/\/$/, '/'), ORIGIN);
+      for (const { raw } of links(page)) {
+        const url = new URL(raw, base);
         if (url.origin !== ORIGIN) continue;
-        const target = decodeURIComponent(url.pathname).replace(/^\/|\/$/g, '');
-        assert.ok(existsSync(join(dist, target, 'index.html')), `${page}: ${href} has no page`);
+        const path = decodeURIComponent(url.pathname);
+        assert.ok(path.startsWith(BASE), `${page}: ${raw} is outside the base`);
+        const target = path.slice(BASE.length).replace(/\/$/, '');
+        assert.ok(existsSync(join(DIST, target, 'index.html')), `${page}: ${raw} has no page`);
         const hash = decodeURIComponent(url.hash.slice(1));
-        if (hash) assert.ok(ids(target).includes(hash), `${page}: ${href} has no anchor`);
+        if (hash) assert.ok(ids(target).includes(hash), `${page}: ${raw} has no anchor`);
+        checked++;
       }
     }
+    assert.ok(checked > 50, `only ${checked} links checked`);
   });
   test('the test pages are all there', () => {
-    for (const page of ['work/prose', 'work/handoff', 'work/plan', 'split/plan/part-a', 'split/plan/part-b', 'decisions/0001-first']) html(page);
+    assert.ok(pages.length > 10);
+    for (const page of ['work/prose', 'work/handoff', 'work/plan', 'split/plan/part-a', 'split/plan/part-b', 'decisions/0001-first']) assert.ok(pages.includes(page), page);
   });
 });
