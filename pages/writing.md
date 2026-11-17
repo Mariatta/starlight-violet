@@ -135,8 +135,9 @@ relations to other decisions are front matter.
 
 - One decision per page. "And also" is a second decision.
 - A `locked` decision is not edited in substance. A change of mind is a new
-  decision that `supersedes` it (or `amends` part of it); the old page gains
-  `superseded_by`.
+  decision that `supersedes` it, whole or in part, or `amends` it; the old
+  page gains `superseded_by` or `amended_by` to match. See the
+  [decision kind](../kinds/decision/) for what each does to `status` and `date`.
 - Refer to a decision as "decision 0011"; Violet links it.
 
 ### Handoff (`kind: handoff`)
