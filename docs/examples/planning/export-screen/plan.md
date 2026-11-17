@@ -66,7 +66,7 @@ The model, the writers and the screen, behind the `export_screen` flag.
 The screen creates Queued rows but nothing builds them until PR 2, so
 organizers do not see it yet.
 
-### Task 1: The Export model
+### Task 1: The `Export` model
 
 An `Export` row per request: which organizer, which type, the range, the status, and
 later the file. Statuses as in the [spec](spec.md#statuses).
@@ -76,13 +76,13 @@ later the file. Statuses as in the [spec](spec.md#statuses).
 The form from the [mockup](brainstorm.md#where-we-landed), behind the
 organizer permission. Builds on Task 1.
 
-### Task 3: One writer per type
+### Task 3: One writer per type, CSV \| zip
 
 `RsvpWriter` and `VenueWriter` write CSV rows for a date range;
 `PhotoArchiveWriter` streams the photos of the events in the range into a
 zip. Tasks 1 to 3 make up PR 1.
 
-# PR 2: Background jobs
+# PR 2: Background jobs with `build_export`
 
 Every export runs in the worker. This is the PR that closes the
 [timeout risk](../../risks/export-timeouts.md).
@@ -138,7 +138,7 @@ screen also shows a notice is [Q4](../../handoffs/export-jobs.md#q4).
 
 # PR 3: History and limits
 
-### Task 7: Recent exports on the screen
+### Task 7: Recent exports in a `<table>`
 
 The last 20 exports for the signed-in organizer, newest first, with a Download
 link while Ready.
