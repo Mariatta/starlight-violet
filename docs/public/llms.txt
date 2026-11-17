@@ -2,7 +2,7 @@
 
 > Violet (`starlight-violet` on npm) is a Starlight plugin that renders a folder of Markdown notes as a documentation site, read in place from the repo: plans, reference pages, architecture decisions and handoffs between agents. Each page declares a kind in front matter, and the build checks it against that kind's schema and required sections.
 
-If you are a coding agent asked to write or edit notes in a project that uses Violet, read the writing guide first and follow it. It ships inside the package, so you can read it without the site running: `node_modules/starlight-violet/pages/writing.md`, with the contract for each kind next to it in `node_modules/starlight-violet/pages/kinds/`. A site can add its own rules on top; where they differ, the site's rules win.
+If you are a coding agent asked to write or edit notes in a project that uses Violet, read the writing guide first and follow it. It ships inside the package, so you can read it without the site running: `node_modules/starlight-violet/pages/writing.md` in the site's folder, with the contract for each kind next to it in `pages/kinds/`. A site can add its own rules on top; where they differ, the site's rules win.
 
 ## Writing notes
 
