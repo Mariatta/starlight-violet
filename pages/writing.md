@@ -27,7 +27,7 @@ when done: it fails, naming the file, on front matter that breaks its kind.
 ```
 
 The guide ships inside the package, so an agent can read it from
-`node_modules` without the site running. The contracts it links to are next
+`node_modules` without the site running. The contracts it names are next
 to it, in `pages/kinds/`.
 
 ## Before you write
