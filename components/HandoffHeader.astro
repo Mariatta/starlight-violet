@@ -24,7 +24,7 @@ const decisionUrls = new Map(readDecisions().map((d) => [d.number, d.url]));
       <tr><th>To</th><td>{data.to}</td></tr>
       <tr><th>Date</th><td>{date}</td></tr>
       {data.decisions.length > 0 && (
-        <tr><th>Decisions</th><td>{data.decisions.map((d) => decisionUrls.has(d) ? <a href={decisionUrls.get(d)}>decision {d}</a> : <span>decision {d}</span>)}</td></tr>
+        <tr><th>Decisions</th><td>{data.decisions.map((d, i) => <>{i > 0 && ', '}{decisionUrls.has(d) ? <a href={decisionUrls.get(d)}>decision {d}</a> : <span>decision {d}</span>}</>)}</td></tr>
       )}
       <tr><th>Read first</th><td><ol class="inputs">{data.inputs.map((i) => <li><code>{i}</code></li>)}</ol></td></tr>
     </tbody>
