@@ -229,7 +229,7 @@ export function folderQuestions(file: string): Map<string, string> {
  * plan. Only pages the site builds.
  */
 export function folderPlans(file: string): string[] {
-  const plans = [planFor(file)?.file, siblingPages(file).get('PLAN')?.file, markdownFiles(dirname(file)).find((f) => page(f).data.type === 'plan')];
+  const plans = [planFor(file)?.file, siblingPages(file).get('PLAN')?.file, markdownFiles(dirname(file)).find((f) => page(f).data.kind === 'planning' && page(f).data.type === 'plan')];
   return [...new Set(plans.filter((f): f is string => f !== undefined))];
 }
 

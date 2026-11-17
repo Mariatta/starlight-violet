@@ -17,6 +17,7 @@ import { addHeadingLinks } from './headings';
 import { idFor, isSkipped, LANDING, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { isSplit, pageParts, readPlan, sectionHeadings, type Plan } from './plans';
 import { notFrontMatter, renderPlain } from '../markdown/plain';
+import { FIELD_HASH } from '../markdown/rows';
 
 /** Violet's guide pages are filed under this folder. */
 export const GUIDE = 'guide';
@@ -201,8 +202,10 @@ export function notesLoader(): Loader {
             const parsed = await parseData({ id, data, filePath: shown });
             const kind = getKind(parsed.kind);
             if (kind?.render) {
+              // A field is not the body: its numbered rows must not repeat the body's row ids.
+              const fieldURL = new URL(FIELD_HASH, fileURL);
               const inline = async (text: string, options?: { html?: boolean }) => {
-                const html = options?.html === false ? await renderPlain(text, fileURL) : (await renderMarkdown(notFrontMatter(text), { fileURL })).html;
+                const html = options?.html === false ? await renderPlain(text, fieldURL) : (await renderMarkdown(notFrontMatter(text), { fileURL: fieldURL })).html;
                 return html.replace(/^<p>|<\/p>\s*$/g, '');
               };
               await kind.render(parsed, inline);

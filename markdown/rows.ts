@@ -19,6 +19,13 @@ import { fileURLToPath } from 'node:url';
 import type { HastPluginEntry, MdastPluginEntry } from 'satteri';
 import { cellText, isRowLabel, rowAnchors, rowId, rowKind } from '../lib/references';
 
+/**
+ * The hash a page's fileURL carries when one of its front matter fields
+ * renders on its own. The rows a field's table numbers are not the body's,
+ * so they get no ids: the body's ids are the ones links point at.
+ */
+export const FIELD_HASH = '#violet-field';
+
 /** The property of the mark a numbered row's first cell carries until the row takes its id. */
 const MARK = 'dataVioletRow';
 
@@ -39,7 +46,7 @@ export function rowMarksPlugin(): MdastPluginEntry {
         const kind = rowKind(cellText(header?.children?.[0] ?? { type: 'text' }));
         if (!kind) return;
         // Worked out on the first numbered table only, and cached per file.
-        allowed ??= file && existsSync(file) ? rowAnchors(file) : new Set();
+        allowed ??= file && fileURL?.hash !== FIELD_HASH && existsSync(file) ? rowAnchors(file) : new Set();
         for (const row of rows) {
           const cell = row.children?.[0];
           const label = cell ? cellText(cell).trim() : '';

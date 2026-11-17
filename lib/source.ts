@@ -19,19 +19,61 @@ export function setParseFeatures(features: Features): void {
   store[FEATURES] = features;
 }
 
-const trees = new Map<string, Root>();
+/**
+ * Maps that hold what one turn of the event loop worked out, emptied at the
+ * end of it. One render asks about the same bodies many times, but holding
+ * every body's tree for a whole dev session would keep the notes in memory
+ * many times over; what is worth keeping longer is kept by `cached`, against
+ * the file's modification time.
+ */
+const forTurn = new Set<Map<unknown, unknown>>();
+let clearing = false;
+
+/** A map emptied at the end of each turn of the event loop. */
+export function turnMap<K, V>(): Map<K, V> {
+  const map = new Map<K, V>();
+  forTurn.add(map as Map<unknown, unknown>);
+  return map;
+}
+
+/** Empty every turn map at the end of this turn. Call before adding to one. */
+export function clearAfterTurn(): void {
+  if (clearing) return;
+  clearing = true;
+  setImmediate(() => {
+    clearing = false;
+    for (const map of forTurn) map.clear();
+  });
+}
+
+let seen: unknown;
+
+/**
+ * Forget what was worked out with other features: a tree parsed before the
+ * site recorded its features, or before a dev server reloaded its config,
+ * would read headings with the wrong smart punctuation.
+ */
+function freshen(): void {
+  if (store[FEATURES] === seen) return;
+  seen = store[FEATURES];
+  for (const map of forTurn) map.clear();
+  memo.clear();
+}
+
+const trees = turnMap<string, Root>();
 
 /**
  * A body's Markdown tree, read by the same parser and features the site
  * renders with, so headings, tables and parts are found where the page has
  * them. With `smart: false`, smart punctuation is left off, so text reads
  * as it was written (`What's next`, not `What’s next`): what a page's
- * headings are compared with. The last few hundred trees are kept (two a
- * body, as written and as rendered), since one body is asked about many
+ * headings are compared with. Trees are kept until the end of the turn of
+ * the event loop (see `turnMap`), since a render asks about one body many
  * times; with `keep: false` the tree is not kept, and `position: false`
  * leaves out its positions.
  */
 export function parse(body: string, { keep = true, smart = true, position = true } = {}): Root {
+  freshen();
   // Bodies come with their front matter already removed, and often their title line too,
   // so a leading `---` is a thematic break, not front matter.
   const features: Features = { ...((store[FEATURES] as Features | undefined) ?? { gfm: true, directive: true }), frontmatter: false };
@@ -39,6 +81,7 @@ export function parse(body: string, { keep = true, smart = true, position = true
   // A one-off text, such as a shortcode's table, is not worth a place among the bodies,
   // and may go without positions, which would point into a source no page has.
   if (!keep) return markdownToMdast(body, { features, position }) as Root;
+  clearAfterTurn();
   const key = smart ? body : `\0${body}`;
   let tree = trees.get(key);
   if (tree) trees.delete(key);
@@ -115,6 +158,7 @@ const LIMIT = 20000;
  * every handoff field), and each asks about the same few files.
  */
 export function cached<T>(path: string, key: string, compute: () => T): T {
+  freshen();
   const mtime = mtimeOf(path);
   const id = `${key}:${path}`;
   const hit = memo.get(id);

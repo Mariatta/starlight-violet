@@ -57,13 +57,25 @@ function listPattern(word: string): RegExp {
 const TASKS = listPattern('Task');
 const STAGES = listPattern('Stage');
 /**
- * "Q3", and "q3" in prose, but not a quarter ("Q1 2027", "Q1-2027", "2027 Q1",
- * "FY2027 Q1", "Q1 FY27", "Q1-FY27", "Q1 FY2027"), nor a lowercase q in an address or
- * a name ("?q1=foo", "#q2", "q3.json", "q4-flag"), where a capital Q
- * would not be written either.
+ * "Q3", and "q3" in prose, but not a quarter: one with a year ("Q1 2027",
+ * "Q1-2027", "2027 Q1", "FY2027 Q1", "Q1 FY27", "Q1-FY27", "Q1 FY2027"), or
+ * Q1 to Q4 after a word that names a time ("in Q4", "by Q2", "next Q1",
+ * "end of Q3") or before one that a quarter takes ("Q3 revenue", "Q4
+ * goals"). Nor one in an address or a name ("?q1=foo", "#q2", "q3.json",
+ * "Q3.json", "q4-flag").
  */
-const QUESTIONS =
-  /(?<!(?:(?:19|20)\d\d|[Ff][Yy]\s?\d\d)[\s-]?)(?:\bQ\d+\b|(?<![\w?&=/#.-])q\d+\b(?![=.\-_]\w))(?![\s-]?(?:[Ff][Yy]\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)/g;
+const QUESTIONS = new RegExp(
+  [
+    String.raw`(?<!(?:(?:19|20)\d\d|[Ff][Yy]\s?\d\d)[\s-]?)`,
+    // Q1 to Q4 after a word that names a time.
+    String.raw`(?!(?<=\b(?:[Ii]n|[Bb]y|[Dd]uring|[Uu]ntil|[Tt]ill|[Bb]efore|[Aa]fter|[Tt]hrough|[Ss]ince|[Tt]his|[Nn]ext|[Ll]ast|[Ee]arly|[Ll]ate|[Mm]id|[Ee]nd\s+of|[Ss]tart\s+of)[\s-]+)[Qq][1-4]\b)`,
+    String.raw`(?:\bQ\d+\b(?![=.]\w)|(?<![\w?&=/#.-])q\d+\b(?![=.\-_]\w))`,
+    String.raw`(?![\s-]?(?:[Ff][Yy]\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)`,
+    // Q1 to Q4 before a word that a quarter takes.
+    String.raw`(?!(?<=\b[Qq][1-4])\s+(?:revenue|earnings|results|sales|targets?|goals?|OKRs?|roadmap|planning|budget|release|launch|report)\b)`,
+  ].join(''),
+  'g',
+);
 /** A section number: "6", "6.4", "1a". */
 const SECTION = String.raw`\d+[a-z]?(?:\.\d+)*`;
 /** What may follow a page's name: "§6", "section 7", "principle 2", "3.2". */
@@ -115,14 +127,19 @@ interface Match {
   nodes: PhrasingContent[];
 }
 
-/** "word N, M and K" to text and links, linking each number `urls` knows; undefined when none does. */
+/**
+ * "word N, M and K" to text and links, linking each number `urls` knows;
+ * undefined when none does. In lower case only a dotted number links ("task
+ * 1.2"): "task 2" or "stage 1" in a sentence is as often a plain count.
+ */
 function numbered(match: RegExpMatchArray, urls: Map<string, string>): Match | undefined {
   const nodes: PhrasingContent[] = [text(match[1] + match[2])];
+  const lower = /^[a-z]/.test(match[1]);
   let linked = false;
   for (const part of match[3].split(NUMBER_PARTS).filter(Boolean)) {
-    const url = IS_NUMBER.test(part) ? urls.get(part) : undefined;
+    const url = IS_NUMBER.test(part) && (!lower || part.includes('.')) ? urls.get(part) : undefined;
     // "Task 3.2" with no row 3.2 links its 3 to Task 3, as before rows had numbers.
-    const whole = !url && /^\d+\./.test(part) ? /^\d+/.exec(part)![0] : undefined;
+    const whole = !url && !lower && /^\d+\./.test(part) ? /^\d+/.exec(part)![0] : undefined;
     if (url) {
       nodes.push(link(part, url));
       linked = true;
@@ -133,6 +150,9 @@ function numbered(match: RegExpMatchArray, urls: Map<string, string>): Match | u
   }
   return linked ? { start: match.index!, end: match.index! + match[0].length, nodes } : undefined;
 }
+
+/** Words prose writes in capitals for their own sake, so a page of that name links only as "TODO.md" or with a section. */
+const COMMON_WORDS = new Set(['TODO', 'TODOS', 'NOTE', 'NOTES', 'DONE', 'FIXME', 'WARNING', 'IMPORTANT', 'TBD', 'WIP', 'CLAUDE', 'AGENTS', 'LICENSE']);
 
 const namePatterns = new Map<string, RegExp>();
 
@@ -171,8 +191,8 @@ function pageRefs(value: string, pages: Map<string, Sibling>, self?: string): Ma
       }
     }
     const bare = end === m.index! + m[0].length;
-    // A short name ("UI", "API") is a common word; it links as "UI.md" or with a section.
-    if (m[1].length < 4 && !m[2] && bare) continue;
+    // A short name ("UI", "API") or a word written in capitals anyway ("TODO", "NOTE") links as "UI.md" or with a section.
+    if ((m[1].length < 4 || COMMON_WORDS.has(m[1])) && !m[2] && bare) continue;
     // A page naming itself ("SPEC" in SPEC.md, or "SPEC §99" for a section it lacks) is no reference
     // to follow, though a section of it is ("§3.2" in "SPEC §99 and §3.2"), and on a split page may be another part.
     const ownName = page.file === self && url === page.url;
@@ -376,10 +396,11 @@ export function notesLinksPlugin(): MdastPluginEntry {
           if (!value) return ctx.removeNode(node);
           ctx.setProperty(node, 'value', value);
         }
-        // Not inside a link, Markdown or raw HTML, nor a heading, and only text that may name something.
+        // Not inside a link, Markdown or raw HTML, nor a heading or text directive, and only text that may name something.
         if ((node as any).data?.[IN_ANCHOR] || !MAY_LINK.test(value)) return;
         for (let up: any = parent; up; up = ctx.parent(up as never)) {
-          if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
+          // A directive's label is its own: `:abbr[SPEC]` or `:kbd[Q3]` is not a reference.
+          if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading' || up.type === 'textDirective') return;
         }
         // Text another page wrote links as it does on that page.
         const nodes = autolink(value, targetsOf(writtenIn(node)));
