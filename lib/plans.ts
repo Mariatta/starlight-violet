@@ -241,15 +241,16 @@ export function readPlan(file: string): Plan | undefined {
   const prHeadings = new Map<number, Heading>();
   const taskUrls = new Map<number, string>();
   const prUrls = new Map<number, string>();
-  // Numbers with a heading only inside a quote, list item or ::: block, so a missing heading's message can say where it is.
+  // Numbers with a heading only inside a quote, list item or ::: block, so a missing heading's message can say where it is;
+  // for a PR, the depth of the shallowest, as only a # heading could start a part of a split page.
   const nestedTasks = new Set<number>();
-  const nestedPrs = new Set<number>();
+  const nestedPrs = new Map<number, number>();
   for (const part of pageParts(id, data, splitTitle(body).body)) {
     for (const heading of part.anchors.filter(({ top }) => !top)) {
       const task = TASK_HEADING.exec(heading.text);
       if (task) nestedTasks.add(Number(task[1]));
       const pr = PR_HEADING.exec(heading.text);
-      if (pr) nestedPrs.add(Number(pr[1]));
+      if (pr) nestedPrs.set(Number(pr[1]), Math.min(heading.depth, nestedPrs.get(Number(pr[1])) ?? heading.depth));
     }
     if (part.pr !== undefined && part.title) {
       prHeadings.set(part.pr, { depth: 1, text: part.title, source: part.source ?? part.title, slug: '', top: true });
@@ -295,7 +296,10 @@ export function readPlan(file: string): Plan | undefined {
     const heading = prHeadings.get(number);
     if (rawPrs.length > 0 && !heading) {
       // A split page's parts start at its own # headings; one inside a ::: block belongs to that block.
-      problems.push(`PR ${number} has no "PR ${number}" heading${nestedPrs.has(number) ? `${NESTED}${isSplit(data) ? '; on a split page it does not start a part either' : ''}` : ''}`);
+      const nested = nestedPrs.get(number);
+      // The build joins problems with "; ", so this one's clauses are joined with commas.
+      const part = isSplit(data) && nested === 1 ? ', and on a split page it does not start a part either' : '';
+      problems.push(`PR ${number} has no "PR ${number}" heading${nested !== undefined ? `${NESTED}${part}` : ''}`);
     }
     const listed = ((raw.tasks as number[] | undefined) ?? []).map(Number);
     for (const n of listed) if (!declared.has(n)) problems.push(`PR ${number} lists task ${n}, which is not in tasks`);
