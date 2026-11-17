@@ -62,4 +62,5 @@ A decision file under `decisions/` must declare the kind; the build refuses
 one that does not. When the owner confirms it, `status` becomes `locked`, `date`
 the day they said so, `proposed` the earlier date, and `confirmed` their words. A later decision that
 replaces part of it adds `supersedes` on its own page and `superseded_by`
-here, each naming the part.
+here, each naming the part. If that turns `status` to `superseded`, `date`
+moves to that day too: it always records when the current status took effect.
