@@ -41,8 +41,9 @@ export function isRowLabel(cell: string): boolean {
 /**
  * A table cell's text, as it decides a numbered row's kind and label: its
  * text and code, with footnote references and raw HTML left out. The
- * links (from the source) and the row anchors (rows.ts, from the rendered
- * tree) both read cells with it, so a link names the id its row gets.
+ * links (from the source) and the row anchors (rows.ts, from the Markdown
+ * tree as it renders) both read cells with it, so a link names the id its
+ * row gets.
  */
 export function cellText(node: { type: string; children?: unknown[] }): string {
   if (node.type === 'footnoteReference') return '';

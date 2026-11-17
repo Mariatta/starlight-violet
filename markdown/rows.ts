@@ -10,7 +10,9 @@
  * same `cellText` the links use, so the two cannot disagree: the mdast
  * plugin marks the row's first cell, and the hast plugin moves the mark's
  * id onto the row, since Sätteri drops `data.hProperties` on mdast table
- * rows and cells.
+ * rows and cells. The two run together, as every Sätteri render runs both
+ * lists; until the hast plugin runs, a numbered row's first cell starts
+ * with an empty emphasis, which mdast plugins after the mark see.
  */
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

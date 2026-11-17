@@ -57,13 +57,13 @@ function listPattern(word: string): RegExp {
 const TASKS = listPattern('Task');
 const STAGES = listPattern('Stage');
 /**
- * "Q3", and "q3" in prose, but not a quarter ("Q1 2027", "2027 Q1",
- * "FY2027 Q1", "Q1 FY27", "Q1 FY2027"), nor a lowercase q in an address or
+ * "Q3", and "q3" in prose, but not a quarter ("Q1 2027", "Q1-2027", "2027 Q1",
+ * "FY2027 Q1", "Q1 FY27", "Q1-FY27", "Q1 FY2027"), nor a lowercase q in an address or
  * a name ("?q1=foo", "#q2", "q3.json", "q4-flag"), where a capital Q
  * would not be written either.
  */
 const QUESTIONS =
-  /(?<!(?:(?:19|20)\d\d|[Ff][Yy]\s?\d\d)\s?)(?:\bQ|(?<![\w?&=/#.-])q)\d+\b(?![=.\-_]\w)(?!\s?(?:[Ff][Yy]\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)/g;
+  /(?<!(?:(?:19|20)\d\d|[Ff][Yy]\s?\d\d)[\s-]?)(?:\bQ\d+\b|(?<![\w?&=/#.-])q\d+\b(?![=.\-_]\w))(?![\s-]?(?:[Ff][Yy]\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)/g;
 /** A section number: "6", "6.4", "1a". */
 const SECTION = String.raw`\d+[a-z]?(?:\.\d+)*`;
 /** What may follow a page's name: "§6", "section 7", "principle 2", "3.2". */
@@ -153,7 +153,7 @@ function pageNamePattern(names: string[]): RegExp {
 }
 
 /** "SPEC", "PLAN.md §6 and §6.4", "SPEC principle 2": the page, and each section it names. */
-function pageRefs(value: string, pages: Map<string, Sibling>): Match[] {
+function pageRefs(value: string, pages: Map<string, Sibling>, self?: string): Match[] {
   if (pages.size === 0) return [];
   const matches: Match[] = [];
   for (const m of value.matchAll(pageNamePattern([...pages.keys()]))) {
@@ -170,15 +170,19 @@ function pageRefs(value: string, pages: Map<string, Sibling>): Match[] {
         end += section[0].length;
       }
     }
+    const bare = end === m.index! + m[0].length;
     // A short name ("UI", "API") is a common word; it links as "UI.md" or with a section.
-    if (m[1].length < 4 && !m[2] && end === m.index! + m[0].length) continue;
-    const nodes: PhrasingContent[] = [link(value.slice(m.index!, end), url)];
+    if (m[1].length < 4 && !m[2] && bare) continue;
+    // A page naming itself ("SPEC" in SPEC.md, or "SPEC §99" for a section it lacks) is no reference
+    // to follow, though a section of it is ("§3.2" in "SPEC §99 and §3.2"), and on a split page may be another part.
+    const ownName = page.file === self && url === page.url;
+    const nodes: PhrasingContent[] = [ownName ? text(value.slice(m.index!, end)) : link(value.slice(m.index!, end), url)];
     for (let more = MORE_SECTIONS.exec(value.slice(end)); more; more = MORE_SECTIONS.exec(value.slice(end))) {
       const target = sectionUrl(page, { number: more[3] });
       nodes.push(text(more[1]), target ? link(more[2], target) : text(more[2]));
       end += more[0].length;
     }
-    matches.push({ start: m.index!, end, nodes });
+    if (nodes.some((node) => node.type === 'link')) matches.push({ start: m.index!, end, nodes });
   }
   return matches;
 }
@@ -202,6 +206,8 @@ interface Targets {
   stages: () => Map<string, string>;
   questions: () => Map<string, string>;
   pages: () => Map<string, Sibling>;
+  /** The page the prose is written in. */
+  self?: string;
 }
 
 function once<T>(compute: () => T): () => T {
@@ -234,7 +240,7 @@ function autolink(value: string, targets: Targets): PhrasingContent[] | undefine
   each(STAGES, targets.stages);
   each(DECISIONS, targets.decisions);
   if (mentions(QUESTIONS, value)) matches.push(...questionRefs(value, targets.questions()));
-  if (CAPITALS.test(value)) matches.push(...pageRefs(value, targets.pages()));
+  if (CAPITALS.test(value)) matches.push(...pageRefs(value, targets.pages(), targets.self));
   if (matches.length === 0) return;
   matches.sort((a, b) => a.start - b.start);
   const out: PhrasingContent[] = [];
@@ -298,8 +304,8 @@ function targetsFor(file: string | undefined): Targets {
     decisions: once(() => (getOptions().kinds.includes('decision') ? new Map(readDecisions().map((d) => [d.number, d.url])) : new Map<string, string>())),
     stages: once(() => rows().get('stage') ?? new Map()),
     questions: once(() => (dir ? folderQuestions(file!) : new Map())),
-    // A page naming itself ("SPEC" in SPEC.md) is not a reference to follow.
-    pages: once(() => new Map([...(dir ? siblingPages(file!) : [])].filter(([, page]) => page.file !== file))),
+    pages: once(() => (dir ? siblingPages(file!) : new Map())),
+    self: file,
   };
 }
 

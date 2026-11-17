@@ -50,6 +50,8 @@ export async function renderPlain(text: string, fileURL: URL): Promise<string> {
     mdastPlugins: [plainHtmlPlugin(), ...pipeline.mdastPlugins],
     hastPlugins: pipeline.hastPlugins,
     fileURL,
+    // What Astro's own renders give plugins, so a site's plugin that reads it works here too.
+    data: { astro: { frontmatter: {}, headings: [], localImagePaths: new Set(), remoteImagePaths: new Set() } },
   });
   return html.trim();
 }
