@@ -27,7 +27,7 @@ const trees = new Map<string, Root>();
  * them. The last few hundred trees are kept, since one body is asked about
  * many times.
  */
-export function parse(body: string): Root {
+export function parse(body: string, { keep = true } = {}): Root {
   let tree = trees.get(body);
   if (tree) {
     trees.delete(body);
@@ -36,6 +36,8 @@ export function parse(body: string): Root {
     // so a leading `---` is a thematic break, not front matter.
     const features = { ...((store[FEATURES] as Features | undefined) ?? { gfm: true, directive: true }), frontmatter: false };
     tree = markdownToMdast(body, { features }) as Root;
+    // A one-off text, such as a shortcode's table, is not worth a place among the bodies.
+    if (!keep) return tree;
   }
   trees.set(body, tree);
   if (trees.size > 300) trees.delete(trees.keys().next().value!);

@@ -243,10 +243,12 @@ function autolink(value: string, targets: Targets): PhrasingContent[] | undefine
  * browser reads tags: an <a> opens (closing any open one), a </a> closes,
  * a stray </a> does nothing, and a tag inside a comment is not one. An
  * anchor left open holds everything after it, since browsers reopen it in
- * later blocks. The mark is on the node, so text another plugin made (a
- * step's title, a shortcode's table) is placed like any other.
+ * later blocks, except that one left open in a table cell ends with the
+ * cell, as browsers end it. The mark is on the node, so text another
+ * plugin made (a step's title, a shortcode's table) is placed like any
+ * other.
  */
-function markAnchoredText(root: any, mark: (node: any) => void): void {
+export function markAnchoredText(root: any, mark: (node: any) => void): void {
   let open = false;
   const walk = (node: any) => {
     if (node.type === 'html') {
@@ -254,13 +256,17 @@ function markAnchoredText(root: any, mark: (node: any) => void): void {
       for (const [tag] of tags.matchAll(/<a[\s>]|<\/a\s*>/gi)) open = !tag.startsWith('</');
     } else if (node.type === 'text') {
       if (open) mark(node);
+    } else if (node.type === 'tableCell') {
+      const before = open;
+      for (const child of node.children ?? []) walk(child);
+      open = before;
     } else for (const child of node.children ?? []) walk(child);
   };
   walk(root);
 }
 
 /** The data key marking a text inside a raw <a>. */
-const IN_ANCHOR = 'violetInRawAnchor';
+export const IN_ANCHOR = 'violetInRawAnchor';
 
 /** The data key naming the notes file a text was written in, when another page shows it (`::questions`). */
 export const FROM_PAGE = 'violetFromPage';
@@ -290,13 +296,15 @@ export function notesLinksPlugin(): MdastPluginEntry {
     // Only a page with a raw <a> needs a pass over its tags.
     const rawAnchors = /<a[\s>]/i.test(source);
     const file = fileURL ? fileURLToPath(fileURL) : undefined;
-    const dir = file && file.startsWith(notesDir()) ? dirname(file) : undefined;
     const plans = new Map<string, Plan | undefined>();
-    const plan = (topic?: string | null) => {
-      const key = topic ?? '';
-      if (!plans.has(key)) plans.set(key, planFor(file, topic));
+    const plan = (topic?: string | null, from = file) => {
+      const key = `${from ?? ''}\0${topic ?? ''}`;
+      if (!plans.has(key)) plans.set(key, planFor(from, topic));
       return plans.get(key);
     };
+    /** The notes file a node was written in: another page's, when a shortcode shows its text (`::questions`). */
+    const writtenIn = (node: unknown): string | undefined => (node as any).data?.[FROM_PAGE] ?? file;
+    const folderOf = (from: string | undefined) => (from && from.startsWith(notesDir()) ? dirname(from) : undefined);
     const targets = new Map<string | undefined, Targets>([[file, targetsFor(file)]]);
     const targetsOf = (from: string | undefined) => {
       if (!targets.has(from)) targets.set(from, targetsFor(from));
@@ -310,25 +318,29 @@ export function notesLinksPlugin(): MdastPluginEntry {
         },
       }),
       link(node, ctx) {
-        if (!dir) return;
-        const url = rewrite(node.url, dir, file);
+        const from = writtenIn(node);
+        const at = folderOf(from);
+        if (!at) return;
+        const url = rewrite(node.url, at, from);
         if (url) ctx.setProperty(node, 'url', url);
       },
       image(node, ctx) {
-        if (!dir) return;
-        const url = rewrite(node.url, dir);
+        const at = folderOf(writtenIn(node));
+        if (!at) return;
+        const url = rewrite(node.url, at);
         if (url) ctx.setProperty(node, 'url', url);
       },
       textDirective(node, ctx) {
         if (node.name !== 'task' && node.name !== 'pr') return;
         const label = ctx.textContent(node).trim();
         const number = Number(label);
-        const target = plan(node.attributes?.topic);
+        const from = writtenIn(node);
+        const target = plan(node.attributes?.topic, from);
         const items: { number: number; url: string }[] = node.name === 'task' ? (target?.tasks ?? []) : (target?.prs ?? []);
         const found = items.find((item) => item.number === number);
         if (!found) {
           throw new Error(
-            `${file ?? 'a site page'}: :${node.name}[${label}] matches no ${node.name === 'task' ? 'task' : 'PR'} in ${target ? target.file : 'any plan (add topic=<folder>)'}`,
+            `${from ?? 'a site page'}: :${node.name}[${label}] matches no ${node.name === 'task' ? 'task' : 'PR'} in ${target ? target.file : 'any plan (add topic=<folder>)'}`,
           );
         }
         ctx.replaceNode(node, link(`${node.name === 'task' ? 'Task' : 'PR'} ${label}`, found.url));
@@ -352,7 +364,7 @@ export function notesLinksPlugin(): MdastPluginEntry {
           if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
         }
         // Text another page wrote links as it does on that page.
-        const nodes = autolink(value, targetsOf((node as any).data?.[FROM_PAGE] ?? file));
+        const nodes = autolink(value, targetsOf(writtenIn(node)));
         if (nodes) ctx.replaceNode(node, nodes);
       },
     };

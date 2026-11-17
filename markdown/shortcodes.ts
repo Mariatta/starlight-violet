@@ -11,8 +11,8 @@ import { getOptions } from '../options';
 import { idFor, issueRefs, issueUrl, notesDir, notesPages, notesRel, pageUrl, readKind, readPage, sectionDescription, sections, slugify, splitTitle, words, type PageInfo } from '../lib/notes';
 import { planFor, planningFolder, type Plan } from '../lib/plans';
 import { readDecisions, readHandoffs } from '../lib/records';
-import { parse } from '../lib/source';
-import { FROM_PAGE } from './links';
+import { parse, textOf } from '../lib/source';
+import { FROM_PAGE, IN_ANCHOR, markAnchoredText } from './links';
 
 type Attributes = Record<string, string | null | undefined>;
 
@@ -37,21 +37,41 @@ function unplaced(node: MdastNode): MdastNode {
   return (children ? { ...rest, children: children.map(unplaced) } : rest) as MdastNode;
 }
 
+/** The nodes whose meaning depends on the page that wrote them: what `fromPage` marks. */
+const PLACED = new Set(['text', 'link', 'image', 'textDirective']);
+
 /**
- * Markdown another page wrote, parsed here as nodes rather than handed back
- * as text: raw HTML in it shows as text (as in that page's header, so
- * `<id>` is not lost), and each text is marked with the page it came from,
- * so "Q3" or "SPEC 3.2" in it link where they do on that page, not in the
- * folder of the page showing it.
+ * A table of Markdown another page wrote, parsed here as nodes rather than
+ * handed back as text, so it reads as it does on that page: each text,
+ * link, image and `:task[3]` is marked with the page it came from, so
+ * "Q3", "SPEC 3.2" or `[the spec](SPEC.md)` in it link where they do on
+ * that page, not from the folder of the page showing it. In the columns
+ * named in `plain`, raw HTML shows as text, as that page's header shows
+ * those fields (so `<id>` is not lost). In the others, text inside a raw
+ * `<a>` is left alone, one cell at a time, as the header renders each
+ * field on its own.
  */
-function fromPage(markdown: string, file: string): MdastNode {
-  const mark = (node: MdastNode): MdastNode => {
-    if (node.type === 'html') return { type: 'text', value: (node as { value: string }).value, data: { [FROM_PAGE]: file } } as MdastNode;
-    if (node.type === 'text') return { ...node, data: { ...(node as { data?: object }).data, [FROM_PAGE]: file } } as MdastNode;
-    const children = (node as { children?: MdastNode[] }).children;
-    return (children ? { ...node, children: children.map(mark) } : node) as MdastNode;
+function fromPage(markdown: string, file: string, plain: string[]): MdastNode {
+  const mark = (node: MdastNode, asText: boolean): MdastNode => {
+    const data = { ...(node as { data?: object }).data, [FROM_PAGE]: file };
+    if (node.type === 'html' && asText) return { type: 'text', value: (node as { value: string }).value, data } as MdastNode;
+    const marked = (PLACED.has(node.type) ? { ...node, data } : node) as MdastNode & { children?: MdastNode[] };
+    return (marked.children ? { ...marked, children: marked.children.map((child) => mark(child, asText)) } : marked) as MdastNode;
   };
-  return mark(unplaced(parse(markdown).children[0] as MdastNode));
+  type Table = MdastNode & { children: (MdastNode & { children: MdastNode[] })[] };
+  const table = unplaced(parse(markdown, { keep: false }).children[0] as MdastNode) as Table;
+  const header = table.children[0].children.map((cell) => textOf(cell as never));
+  return {
+    ...table,
+    children: table.children.map((row) => ({
+      ...row,
+      children: row.children.map((cell, i) => {
+        const marked = mark(cell, plain.includes(header[i]));
+        markAnchoredText(marked, (node) => (node.data = { ...node.data, [IN_ANCHOR]: true }));
+        return marked;
+      }),
+    })),
+  } as MdastNode;
 }
 
 function issueLinks(...issues: (string | undefined)[]): string {
@@ -245,9 +265,18 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
     const handoff = readHandoffs().find((h) => h.id === of || h.id.endsWith(`/${of}`));
     if (!handoff) return `> No handoff with id \`${of ?? ''}\`.`;
     const questions = (handoff.data.open_questions as Record<string, string>[] | undefined) ?? [];
-    const rows = questions.map((q) => [`[${q.id}](${handoff.url}#${String(q.id).toLowerCase()})`, q.question, q.blocks ?? '', q.answer ?? '*open*']);
+    const rows = questions.map((q) => ['id', q.question, q.blocks ?? '', q.answer ?? '*open*']);
     const markdown = table(['', 'Question', 'Blocks', 'Answer'], rows);
-    return rows.length === 0 ? markdown : fromPage(markdown, handoff.file);
+    if (rows.length === 0) return markdown;
+    // The header renders blocks and answers with raw HTML as text, and the question as Markdown.
+    const shown = fromPage(markdown, handoff.file, ['Blocks', 'Answer']) as MdastNode & { children: { children: MdastNode[] }[] };
+    // Each id as the header shows it, in code, linking to its row there: built as a node, so no id needs escaping.
+    for (const [index, q] of questions.entries()) {
+      const id = String(q.id);
+      const link = { type: 'link', url: `${handoff.url}#${encodeURIComponent(id.toLowerCase())}`, children: [{ type: 'inlineCode', value: id }] };
+      shown.children[index + 1].children[0] = { type: 'tableCell', children: [link] } as MdastNode;
+    }
+    return shown;
   },
 
   /** Every reference page , newest change first: `::references{status=current}`. */
