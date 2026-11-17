@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { before, describe, test } from 'node:test';
-import { BASE, DIST, html, ids, links, linksIn, main, ORIGIN } from './helpers.mjs';
+import { BASE, DIST, html, ids, linksIn, main, ORIGIN, pageLinks } from './helpers.mjs';
 
 describe('table rows', () => {
   test('numbered rows get anchors', () => {
@@ -21,8 +21,10 @@ describe('table rows', () => {
 
 describe('headings', () => {
   test('a quoted or listed "Task" heading is not one of the plan tasks', () => {
-    // The plan declares tasks 1 to 3; the build would fail if Task 8 or 9 counted.
-    assert.match(main('work/plan'), /Task 9: a quoted example/);
+    // The plan declares tasks 1 to 3; the build fails if Task 8 or 9 counted. Both still render, in their quote and list.
+    const plan = main('work/plan');
+    assert.match(plan, /<blockquote>\s*(?:<div[^>]*>\s*)?<h2[^>]*\sid="task-9-a-quoted-example-not-a-task"/);
+    assert.match(plan, /<li>\s*(?:<div[^>]*>\s*)?<h2[^>]*\sid="task-8-a-listed-example-not-a-task"/);
   });
   test('a heading with -- keeps the anchor of its rendered text', () => assert.ok(ids('work/plan').includes('task-2--ship')));
   test("a required section with an apostrophe is found", () => assert.match(main('work/checklist'), /What’s next/));
@@ -63,16 +65,29 @@ describe('the whole site', () => {
   test('every link inside the site reaches a page and an anchor it has', () => {
     let checked = 0;
     for (const page of pages) {
-      // Every link is read as the browser reads it on that page: same-page anchors and relative links too.
+      // Every link on the page (sidebar, header and table of contents too), read as the browser reads it:
+      // same-page anchors and relative links included.
       const base = new URL(`${BASE}${page}/`.replace(/\/\/$/, '/'), ORIGIN);
-      for (const { raw } of links(page)) {
-        const url = new URL(raw, base);
+      const decode = (part, raw) => {
+        try {
+          return decodeURIComponent(part);
+        } catch {
+          assert.fail(`${page}: ${raw} is not a valid address`);
+        }
+      };
+      for (const { raw } of pageLinks(page)) {
+        let url;
+        try {
+          url = new URL(raw, base);
+        } catch {
+          assert.fail(`${page}: ${raw} is not a valid address`);
+        }
         if (url.origin !== ORIGIN) continue;
-        const path = decodeURIComponent(url.pathname);
+        const path = decode(url.pathname, raw);
         assert.ok(path.startsWith(BASE), `${page}: ${raw} is outside the base`);
         const target = path.slice(BASE.length).replace(/\/$/, '');
         assert.ok(existsSync(join(DIST, target, 'index.html')), `${page}: ${raw} has no page`);
-        const hash = decodeURIComponent(url.hash.slice(1));
+        const hash = decode(url.hash.slice(1), raw);
         if (hash) assert.ok(ids(target).includes(hash), `${page}: ${raw} has no anchor`);
         checked++;
       }

@@ -44,6 +44,7 @@ describe('tasks and table rows', () => {
     assert.deepEqual(at('TF'), ['1 → /work/plan/#stage-1', '2 → /work/plan/#stage-2']);
   });
   test('a row numbered beside a footnote links', () => assert.deepEqual(at('TJ'), ['5 → /work/plan/#task-5']));
+  test('a task the plan does not declare stays text, quoted and listed example headings included', () => assert.deepEqual(at('TK'), []));
   test('after "each", or before a count or a length of time, stays text', () => {
     for (const label of ['TG', 'TH', 'TI']) assert.deepEqual(at(label), [], label);
   });

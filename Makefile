@@ -26,13 +26,15 @@ test: docs-install
 	$(MAKE) test-run
 
 # CI: docs-ci has installed the packages already.
-test-ci: test-run
+test-ci:
+	@test -d docs/node_modules/starlight-violet || { echo "docs/node_modules has no Violet: run make test, or make docs-ci first"; exit 1; }
+	$(MAKE) test-run
 
 # Tests the copy of Violet in docs/node_modules, which make test reinstalls first;
 # on its own, after editing Violet, it tests the copy from the last install.
 test-run:
 	rm -rf test/site/node_modules
 	ln -s ../../docs/node_modules test/site/node_modules
-	cd test/site && npx astro build
+	cd test/site && npx --no-install astro build
 	cd docs && npx tsc --noEmit -p ../test/site
 	node --test 'test/*.test.mjs'

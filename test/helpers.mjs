@@ -1,6 +1,7 @@
 /**
- * Reading the pages the test site built: each page's main content, its
- * links and its ids. `make test` builds the site before the tests run.
+ * Reading the pages the test site built: each page's HTML, its main
+ * content, its links and its ids, each page read once. `make test` builds
+ * the site before the tests run.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -12,12 +13,17 @@ export const DIST = join(SITE, 'dist');
 export const ORIGIN = 'https://violet.test';
 export const BASE = '/violet-tests/';
 
-/** A page's HTML, by its address: `page('work/prose')`. */
+const pages = new Map();
+
+/** A page's HTML, by its address without the base: `html('work/prose')`, or `html('')` for the home page. */
 export function html(address) {
-  if (!existsSync(DIST)) throw new Error('the test site is not built: run make test, which builds it first');
-  const file = join(DIST, address, 'index.html');
-  if (!existsSync(file)) throw new Error(`no page at ${address}`);
-  return readFileSync(file, 'utf8');
+  if (!pages.has(address)) {
+    if (!existsSync(DIST)) throw new Error('the test site is not built: run make test, which builds it first');
+    const file = join(DIST, address, 'index.html');
+    if (!existsSync(file)) throw new Error(`no page at ${address}`);
+    pages.set(address, readFileSync(file, 'utf8'));
+  }
+  return pages.get(address);
 }
 
 /** The page's main content, without Starlight's sidebar and header. */
@@ -41,8 +47,8 @@ function local(href) {
 }
 
 /**
- * The links in some HTML, as { href, text }, with addresses as `local`
- * gives them. A link is matched only when no <a> opens inside it, so of
+ * The links in some HTML, as { href, raw, text }: `href` as `local` gives
+ * it, `raw` as the page has it. A link is matched only when no <a> opens inside it, so of
  * two nested anchors only the inner one is found, and a test expecting the
  * outer one fails.
  */
@@ -53,6 +59,11 @@ function linksOf(content) {
 /** Every link in the main content. */
 export function links(address) {
   return linksOf(main(address));
+}
+
+/** Every link on the page: the sidebar, header and table of contents too. */
+export function pageLinks(address) {
+  return linksOf(html(address));
 }
 
 /** The text of one labelled sentence of a page, such as "QB:" up to the next label, with its HTML. */
@@ -80,7 +91,11 @@ export function between(content, from, to) {
   return content.slice(start, end);
 }
 
-/** Every id on a page. */
+const idLists = new Map();
+
+/** Every id on a page, in order, repeats included. */
 export function ids(address) {
-  return [...html(address).matchAll(/\sid="([^"]+)"/g)].map(([, id]) => id);
+  // Frozen, as every caller shares it.
+  if (!idLists.has(address)) idLists.set(address, Object.freeze([...html(address).matchAll(/\sid="([^"]+)"/g)].map(([, id]) => id)));
+  return idLists.get(address);
 }
