@@ -1,64 +1,75 @@
 /**
- * Anchors on a numbered table's rows, as a Sätteri hast plugin: a table whose
- * first header cell is `#` (tasks), `Task`, `Stage`, `Step` or `Phase` gives
- * each row numbered `1` or `1.2` the id `task-1-2`, `stage-1` and so on, so
- * "task 1.2" and "Stage 1" in the folder can link to the row (see links.ts).
- * It runs on the HTML tree because Sätteri drops `data.hProperties` on mdast
- * table rows and cells. A row gets its id only when the page's source gives
- * it (`rowAnchors`), which is what links are worked out from, and never one
- * a heading of the page already has.
+ * Anchors on a numbered table's rows: a table whose first header cell is
+ * `#` (tasks), `Task`, `Stage`, `Step` or `Phase` gives each row numbered
+ * `1` or `1.2` the id `task-1-2`, `stage-1` and so on, so "task 1.2" and
+ * "Stage 1" in the folder can link to the row (see links.ts).
+ *
+ * A row gets its id only when the page's source gives it (`rowAnchors`),
+ * which is what links are worked out from, and never one a heading of the
+ * page already has. Its cells are read once, in the Markdown tree, with the
+ * same `cellText` the links use, so the two cannot disagree: the mdast
+ * plugin marks the row's first cell, and the hast plugin moves the mark's
+ * id onto the row, since Sätteri drops `data.hProperties` on mdast table
+ * rows and cells.
  */
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { HastPluginEntry } from 'satteri';
-import { isRowLabel, rowAnchors, rowId, rowKind } from '../lib/references';
+import type { HastPluginEntry, MdastPluginEntry } from 'satteri';
+import { cellText, isRowLabel, rowAnchors, rowId, rowKind } from '../lib/references';
 
-interface Element {
+/** The property of the mark a numbered row's first cell carries until the row takes its id. */
+const MARK = 'dataVioletRow';
+
+interface MdNode {
   type: string;
-  tagName?: string;
-  value?: string;
-  properties?: Record<string, unknown>;
-  children?: Element[];
+  children?: MdNode[];
 }
 
-/**
- * A rendered cell's text, read as `cellText` reads its source: text, with
- * footnote references and raw HTML left out, so the id given here is the
- * one the links were worked out for.
- */
-function text(node: Element | undefined): string {
-  if (!node || node.properties?.dataFootnoteRef !== undefined) return '';
-  return node.type === 'text' ? (node.value ?? '') : (node.children ?? []).map(text).join('');
-}
-
-function child(node: Element | undefined, tag: string): Element | undefined {
-  return node?.children?.find((c) => c.tagName === tag);
-}
-
-export function rowAnchorsPlugin(): HastPluginEntry {
-  return ({ fileURL }: { fileURL?: URL }) => {
+export function rowMarksPlugin(): MdastPluginEntry {
+  return ({ fileURL }) => {
     const file = fileURL ? fileURLToPath(fileURL) : undefined;
     const used = new Set<string>();
     let allowed: Set<string> | undefined;
     return {
-      name: 'violet-row-anchors',
-      element: {
-        filter: ['table'],
-        visit(table: Element, ctx: { setProperty(node: Element, key: string, value: string): void }) {
-          const kind = rowKind(text(child(child(child(table, 'thead'), 'tr'), 'th')));
-          if (!kind) return;
-          // Worked out on the first numbered table only, and cached per file.
-          allowed ??= file && existsSync(file) ? rowAnchors(file) : new Set();
-          for (const row of child(table, 'tbody')?.children?.filter((c) => c.tagName === 'tr') ?? []) {
-            const label = text(child(row, 'td')).trim();
-            if (!isRowLabel(label)) continue;
-            const id = rowId(kind, label);
-            if (!allowed.has(id) || used.has(id)) continue;
-            used.add(id);
-            ctx.setProperty(row, 'id', id);
-          }
-        },
+      name: 'violet-row-marks',
+      table(table, ctx) {
+        const [header, ...rows] = ((table as MdNode).children ?? []) as MdNode[];
+        const kind = rowKind(cellText(header?.children?.[0] ?? { type: 'text' }));
+        if (!kind) return;
+        // Worked out on the first numbered table only, and cached per file.
+        allowed ??= file && existsSync(file) ? rowAnchors(file) : new Set();
+        for (const row of rows) {
+          const cell = row.children?.[0];
+          const label = cell ? cellText(cell).trim() : '';
+          if (!cell || !isRowLabel(label)) continue;
+          const id = rowId(kind, label);
+          if (!allowed.has(id) || used.has(id)) continue;
+          used.add(id);
+          ctx.prependChild(cell as never, { type: 'emphasis', data: { hName: 'span', hProperties: { [MARK]: id } }, children: [] } as never);
+        }
       },
-    } as never;
+    };
   };
+}
+
+interface Element {
+  type: string;
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  children?: Element[];
+}
+
+export function rowAnchorsPlugin(): HastPluginEntry {
+  return () => ({
+    name: 'violet-row-anchors',
+    element: {
+      filter: ['tr'],
+      visit(row: Element, ctx: { setProperty(node: Element, key: string, value: string): void; removeNode(node: Element): void }) {
+        const mark = row.children?.find((c) => c.type === 'element')?.children?.find((c) => c.properties?.[MARK] !== undefined);
+        if (!mark) return;
+        ctx.setProperty(row, 'id', String(mark.properties![MARK]));
+        ctx.removeNode(mark);
+      },
+    },
+  }) as never;
 }

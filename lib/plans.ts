@@ -8,7 +8,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Slugger from 'github-slugger';
 import { idFor, inNotes, isBuilt, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
-import { cached, nodesOf, parse, textOf } from './source';
+import { cached, parse, textOf } from './source';
 
 export interface PlanTask {
   number: number;
@@ -65,8 +65,24 @@ export function isSplit(data: Record<string, unknown>): boolean {
   return data.split === true;
 }
 
-/** The parts of a page; `body` is without its title heading. */
+const partsMemo = new Map<string, Part[]>();
+
+/**
+ * The parts of a page; `body` is without its title heading. Worked out
+ * once per page and body: the loader, the plan reader, the anchors and the
+ * row links all ask for the parts of the same plans.
+ */
 export function pageParts(id: string, data: Record<string, unknown>, body: string): Part[] {
+  const key = `${id}\0${isSplit(data)}\0${body}`;
+  let parts = partsMemo.get(key);
+  if (parts) partsMemo.delete(key);
+  else parts = splitParts(id, data, body);
+  partsMemo.set(key, parts);
+  if (partsMemo.size > 300) partsMemo.delete(partsMemo.keys().next().value!);
+  return parts;
+}
+
+function splitParts(id: string, data: Record<string, unknown>, body: string): Part[] {
   const url = pageUrl(id);
   if (!isSplit(data)) return [{ id, url, body, anchors: headings(body) }];
   const lines = body.split('\n');
@@ -83,9 +99,9 @@ export function pageParts(id: string, data: Record<string, unknown>, body: strin
   starts.forEach(({ after, text }, index) => {
     const partBody = lines.slice(after, starts[index + 1]?.line ?? lines.length).join('\n');
     const pr = PR_HEADING.exec(text);
-    const slug = pr ? `pr-${pr[1]}` : slugger.slug(plain(text));
+    const slug = pr ? `pr-${pr[1]}` : slugger.slug(text);
     const partId = `${id}/${slug}`;
-    parts.push({ id: partId, url: pageUrl(partId), body: partBody, title: plain(text), pr: pr ? Number(pr[1]) : undefined, anchors: headings(partBody) });
+    parts.push({ id: partId, url: pageUrl(partId), body: partBody, title: text, pr: pr ? Number(pr[1]) : undefined, anchors: headings(partBody) });
   });
   return parts;
 }
@@ -163,10 +179,6 @@ export function sectionHeadings(body: string): string[] {
     .filter(Boolean);
 }
 
-function plain(text: string): string {
-  return text.replace(/`/g, '').trim();
-}
-
 type Raw = Record<string, unknown>;
 
 /** The plan in one file: front matter entries joined to their headings. Undefined when it declares none. */
@@ -213,7 +225,7 @@ export function readPlan(file: string): Plan | undefined {
     if (!heading) problems.push(`task ${number} has no "Task ${number}" heading`);
     return {
       number,
-      title: String(raw.title ?? (heading ? plain(TASK_HEADING.exec(heading.text)![2]) : '')),
+      title: String(raw.title ?? (heading ? TASK_HEADING.exec(heading.text)![2].trim() : '')),
       status: String(raw.status ?? 'todo'),
       issue: raw.issue as string | undefined,
       pr: prOf.get(number),
@@ -233,7 +245,7 @@ export function readPlan(file: string): Plan | undefined {
     for (const n of listed) if (!declared.has(n)) problems.push(`PR ${number} lists task ${n}, which is not in tasks`);
     return {
       number,
-      title: String(raw.title ?? (heading ? plain(PR_HEADING.exec(heading.text)![2]) : '')),
+      title: String(raw.title ?? (heading ? PR_HEADING.exec(heading.text)![2].trim() : '')),
       status: String(raw.status ?? 'todo'),
       branch: raw.branch as string | undefined,
       ships: raw.ships as string | undefined,

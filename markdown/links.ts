@@ -56,8 +56,14 @@ function listPattern(word: string): RegExp {
 }
 const TASKS = listPattern('Task');
 const STAGES = listPattern('Stage');
-/** "Q3", but not a quarter: "Q1 2027", "2027 Q1", "FY2027 Q1", "Q1 FY27", "Q1 FY2027". */
-const QUESTIONS = /(?<!(?:(?:19|20)\d\d|FY\s?\d\d)\s?)\bQ\d+\b(?!\s?(?:FY\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)/gi;
+/**
+ * "Q3", and "q3" in prose, but not a quarter ("Q1 2027", "2027 Q1",
+ * "FY2027 Q1", "Q1 FY27", "Q1 FY2027"), nor a lowercase q in an address or
+ * a name ("?q1=foo", "#q2", "q3.json", "q4-flag"), where a capital Q
+ * would not be written either.
+ */
+const QUESTIONS =
+  /(?<!(?:(?:19|20)\d\d|[Ff][Yy]\s?\d\d)\s?)(?:\bQ|(?<![\w?&=/#.-])q)\d+\b(?![=.\-_]\w)(?!\s?(?:[Ff][Yy]\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)/g;
 /** A section number: "6", "6.4", "1a". */
 const SECTION = String.raw`\d+[a-z]?(?:\.\d+)*`;
 /** What may follow a page's name: "§6", "section 7", "principle 2", "3.2". */
@@ -203,6 +209,9 @@ function once<T>(compute: () => T): () => T {
   return () => (value ??= { v: compute() }).v;
 }
 
+/** What every reference has: a number, or a capitalised name. Most text has neither, so is passed over. */
+const MAY_LINK = /\d|\b[A-Z][A-Z0-9_-]+\b/;
+
 /** A capitalised word, which a page name such as SPEC or PLAN would be. */
 const CAPITALS = /\b[A-Z][A-Z0-9_-]+\b/;
 
@@ -289,7 +298,8 @@ function targetsFor(file: string | undefined): Targets {
     decisions: once(() => (getOptions().kinds.includes('decision') ? new Map(readDecisions().map((d) => [d.number, d.url])) : new Map<string, string>())),
     stages: once(() => rows().get('stage') ?? new Map()),
     questions: once(() => (dir ? folderQuestions(file!) : new Map())),
-    pages: once(() => (dir ? siblingPages(file!) : new Map())),
+    // A page naming itself ("SPEC" in SPEC.md) is not a reference to follow.
+    pages: once(() => new Map([...(dir ? siblingPages(file!) : [])].filter(([, page]) => page.file !== file))),
   };
 }
 
@@ -360,8 +370,8 @@ export function notesLinksPlugin(): MdastPluginEntry {
           if (!value) return ctx.removeNode(node);
           ctx.setProperty(node, 'value', value);
         }
-        // Not inside a link, Markdown or raw HTML, nor a heading.
-        if ((node as any).data?.[IN_ANCHOR]) return;
+        // Not inside a link, Markdown or raw HTML, nor a heading, and only text that may name something.
+        if ((node as any).data?.[IN_ANCHOR] || !MAY_LINK.test(value)) return;
         for (let up: any = parent; up; up = ctx.parent(up as never)) {
           if (up.type === 'link' || up.type === 'linkReference' || up.type === 'heading') return;
         }

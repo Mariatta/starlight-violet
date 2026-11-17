@@ -8,7 +8,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { idFor, inNotes, isBuilt, notesDir, pageUrl, readPage, splitTitle, type Page } from './notes';
-import { anchorUrl, headings, isSplit, pageParts, planFor } from './plans';
+import { headings, isSplit, pageParts, planFor } from './plans';
 import { cached, nodesOf, parse, textOf } from './source';
 
 /** A table whose first header cell is one of these numbers its rows: `#` rows are tasks. */
@@ -39,10 +39,10 @@ export function isRowLabel(cell: string): boolean {
 }
 
 /**
- * A table cell's text as rows.ts reads it rendered: its text and code, with
- * footnote references left out (they render as their number, not their
- * label) and no raw HTML. Both sides read a cell this way, so a link worked
- * out here names the id the rendered row gets.
+ * A table cell's text, as it decides a numbered row's kind and label: its
+ * text and code, with footnote references and raw HTML left out. The
+ * links (from the source) and the row anchors (rows.ts, from the rendered
+ * tree) both read cells with it, so a link names the id its row gets.
  */
 export function cellText(node: { type: string; children?: unknown[] }): string {
   if (node.type === 'footnoteReference') return '';
@@ -101,7 +101,7 @@ export function tableRows(body: string): Map<string, Map<string, string>> {
 }
 
 /** The bodies of a page as it renders: its parts when it is split, else the whole page. */
-function renderedBodies(file: string): { url: string; body: string }[] {
+function renderedBodies(file: string): { url: string; body: string; title?: string }[] {
   const { data, body } = page(file);
   const rest = splitTitle(body).body;
   const url = pageUrl(idFor(file, notesDir()));
@@ -161,13 +161,24 @@ export function siblingPages(file: string): Map<string, Sibling> {
   return pages;
 }
 
-/** The address of an anchor on a page: on the part that holds it when the page is split. */
-function at(page: Sibling, slug: string): string {
-  return anchorUrl(page.file, slug) ?? `${page.url}#${slug}`;
-}
-
 /** A page's Principles section, numbered or not. */
 const PRINCIPLES = /^(?:\d+[a-z]?\.?\s+)?principles\b/i;
+
+/**
+ * A page's sections in order, each with its text as written and its
+ * address. On a split page each part is its own page: its title is a
+ * section at the part's address, and its headings are anchored as that
+ * part renders them, so a heading repeated in two parts is found in the
+ * first with the anchor it has there.
+ */
+function pageSections(file: string): { text: string; url: string }[] {
+  return cached(file, 'sections', () =>
+    renderedBodies(file).flatMap((part) => [
+      ...(part.title ? [{ text: part.title, url: part.url }] : []),
+      ...headings(part.body).map(({ text, slug }) => ({ text, url: `${part.url}#${slug}` })),
+    ]),
+  );
+}
 
 /**
  * A section of a page by its number ("6", "6.4", "1a"): the heading whose
@@ -180,8 +191,7 @@ export function sectionUrl(sibling: Sibling, ref: { number?: string; principle?:
       ? new RegExp(`^${ref.number.replace(/\./g, '\\.')}(?:[.:)](?![0-9a-z])|\\s|$)`, 'i')
       : undefined;
   if (!pattern) return;
-  const found = cached(sibling.file, 'headings', () => headings(splitTitle(page(sibling.file).body).body)).find(({ text }) => pattern.test(text));
-  return found && at(sibling, found.slug);
+  return pageSections(sibling.file).find(({ text }) => pattern.test(text))?.url;
 }
 
 /**

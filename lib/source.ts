@@ -28,22 +28,21 @@ const trees = new Map<string, Root>();
  * as it was written (`What's next`, not `What’s next`): what a page's
  * headings are compared with. The last few hundred trees are kept (two a
  * body, as written and as rendered), since one body is asked about many
- * times.
+ * times; with `keep: false` the tree is not kept, and `position: false`
+ * leaves out its positions.
  */
-export function parse(body: string, { keep = true, smart = true } = {}): Root {
+export function parse(body: string, { keep = true, smart = true, position = true } = {}): Root {
+  // Bodies come with their front matter already removed, and often their title line too,
+  // so a leading `---` is a thematic break, not front matter.
+  const features: Features = { ...((store[FEATURES] as Features | undefined) ?? { gfm: true, directive: true }), frontmatter: false };
+  if (!smart) features.smartPunctuation = false;
+  // A one-off text, such as a shortcode's table, is not worth a place among the bodies,
+  // and may go without positions, which would point into a source no page has.
+  if (!keep) return markdownToMdast(body, { features, position }) as Root;
   const key = smart ? body : `\0${body}`;
   let tree = trees.get(key);
-  if (tree) {
-    trees.delete(key);
-  } else {
-    // Bodies come with their front matter already removed, and often their title line too,
-    // so a leading `---` is a thematic break, not front matter.
-    const features: Features = { ...((store[FEATURES] as Features | undefined) ?? { gfm: true, directive: true }), frontmatter: false };
-    if (!smart) features.smartPunctuation = false;
-    tree = markdownToMdast(body, { features }) as Root;
-    // A one-off text, such as a shortcode's table, is not worth a place among the bodies.
-    if (!keep) return tree;
-  }
+  if (tree) trees.delete(key);
+  else tree = markdownToMdast(body, { features }) as Root;
   trees.set(key, tree);
   if (trees.size > 600) trees.delete(trees.keys().next().value!);
   return tree;

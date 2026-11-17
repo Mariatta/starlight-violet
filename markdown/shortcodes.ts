@@ -31,13 +31,6 @@ function table(fullHeader: string[], fullRows: string[][]): string {
   return [line(header), `|${header.map(() => '---').join('|')}|`, ...rows.map(line)].join('\n');
 }
 
-/** Strip parser positions, which point into a source the page does not have. */
-function unplaced(node: MdastNode): MdastNode {
-  const { position: _, ...rest } = node as MdastNode & { position?: unknown; children?: MdastNode[] };
-  const children = (rest as { children?: MdastNode[] }).children;
-  return (children ? { ...rest, children: children.map(unplaced) } : rest) as MdastNode;
-}
-
 /** The nodes whose meaning depends on the page that wrote them: what `fromPage` marks. */
 const PLACED = new Set(['text', 'link', 'image', 'textDirective']);
 
@@ -60,7 +53,7 @@ function fromPage(markdown: string, file: string, plain: string[]): MdastNode {
     return (marked.children ? { ...marked, children: marked.children.map((child) => mark(child, asText)) } : marked) as MdastNode;
   };
   type Table = MdastNode & { children: (MdastNode & { children: MdastNode[] })[] };
-  const table = unplaced(parse(markdown, { keep: false }).children[0] as MdastNode) as Table;
+  const table = parse(markdown, { keep: false, position: false }).children[0] as Table;
   const header = table.children[0].children.map((cell) => textOf(cell as never));
   return {
     ...table,
@@ -345,7 +338,7 @@ export function shortcodesPlugin(): MdastPluginEntry {
         // one, so text inside a raw <a> this shortcode writes (in a front matter title shown
         // in a table cell, say) is marked here.
         if (!/<a[\s>]/i.test(out)) return { raw: `${out}\n` };
-        const nodes = (parse(out, { keep: false }).children as MdastNode[]).map(unplaced);
+        const nodes = parse(out, { keep: false, position: false }).children as MdastNode[];
         markAnchoredText({ type: 'root', children: nodes }, (n) => (n.data = { ...n.data, [IN_ANCHOR]: true }));
         ctx.replaceNode(node, nodes as never);
       },

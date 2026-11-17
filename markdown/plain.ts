@@ -9,47 +9,49 @@
  * in the body; a marker inside a paragraph's own lines, such as the `>` on a
  * quote's second line, is gone, as the parser read it.
  *
- * Everything is decided by the parser, not by guessing over the text. The
- * loader marks such a render (`renderPlain`) with a comment of its own at
- * the end of the source, `<!--violet-plain:N-->`, whose number it
- * registers; the plugin factory, which Sätteri hands the source, looks for
- * a registered one, and the plugin removes the comment before anything
- * renders. A normal render of the same text carries no mark, so it is not
- * affected.
+ * Everything is decided by the parser, not by guessing over the text. Such
+ * a field is rendered on its own (`renderPlain`), with the site's features
+ * and plugins and, ahead of them, the plugin here that flattens the tree.
  */
-import type { MdastPluginEntry } from 'satteri';
+import { markdownToHtml, type Features, type HastPluginList, type MdastPluginEntry, type MdastPluginList } from 'satteri';
 
-// Astro loads the config (which registers the plugin) and the content loader
-// as separate module instances, so the register lives on the global object.
-const REGISTER = Symbol.for('starlight-violet.plain-renders');
-const plainRenders: { next: number; open: Set<number> } = ((globalThis as Record<symbol, unknown>)[REGISTER] ??= { next: 0, open: new Set() }) as {
-  next: number;
-  open: Set<number>;
-};
-const MARK = /\n\n<!--violet-plain:(\d+)-->\n?$/;
+interface Pipeline {
+  features: Features;
+  mdastPlugins: MdastPluginList;
+  hastPlugins: HastPluginList;
+}
+
+// Astro loads the config (which records the pipeline) and the content loader
+// as separate module instances, so it lives on the global object.
+const PIPELINE = Symbol.for('starlight-violet.render-pipeline');
+const store = globalThis as Record<symbol, unknown>;
+
+/** Record the site's Markdown features and plugins, so a plain field renders as the page around it does. */
+export function setPipeline(pipeline: Pipeline): void {
+  store[PIPELINE] = pipeline;
+}
 
 /**
  * A fragment Astro would take for front matter (`---` or `+++` at its start,
  * after blank lines) loses that text or fails to render; a backslash before
- * the first character keeps it text. Every inline render needs this.
+ * the first character keeps it text. Every inline render through Astro needs this.
  */
 export function notFrontMatter(text: string): string {
   return text.replace(/^(\s*)([-+])(?=\2\2)/, '$1\\$2');
 }
 
-/** Run `render` on `text` as one line of inline Markdown, with raw HTML read as text. */
-export async function renderPlain(text: string, render: (source: string) => Promise<string>): Promise<string> {
-  const id = plainRenders.next++;
-  plainRenders.open.add(id);
-  try {
-    const html = await render(`${text}\n\n<!--violet-plain:${id}-->\n`);
-    // The mark is removed in the tree; a text ending inside an HTML block that
-    // only its own terminator closes (<!--, <pre>, <script>) swallows it, so
-    // whatever is left of it goes here too.
-    return html.replace(new RegExp(String.raw`\s*(?:<|&lt;)!--violet-plain:${id}--(?:>|&gt;)\s*`, 'g'), '').trim();
-  } finally {
-    plainRenders.open.delete(id);
-  }
+/** `text` as one line of inline Markdown, with raw HTML read as text, as written in `fileURL`. */
+export async function renderPlain(text: string, fileURL: URL): Promise<string> {
+  const pipeline = store[PIPELINE] as Pipeline | undefined;
+  if (!pipeline) throw new Error('starlight-violet: a plain field was rendered before the site set up its Markdown');
+  const { html } = await markdownToHtml(text, {
+    // Front matter is the page's, never a field's.
+    features: { ...pipeline.features, frontmatter: false },
+    mdastPlugins: [plainHtmlPlugin(), ...pipeline.mdastPlugins],
+    hastPlugins: pipeline.hastPlugins,
+    fileURL,
+  });
+  return html.trim();
 }
 
 interface Node {
@@ -74,7 +76,7 @@ const INLINE = new Set([
 function flatten(node: Node, source: string): Node[] {
   // Raw HTML is text here: made so now, not left to the html visitor, since
   // the block it came from is removed once its content is moved.
-  if (node.type === 'html') return [{ type: 'text', value: withoutMark(String(node.value)) }];
+  if (node.type === 'html') return [{ type: 'text', value: String(node.value) }];
   if (INLINE.has(node.type)) return [node];
   const start = node.position?.start.offset;
   const end = node.position?.end.offset;
@@ -93,33 +95,20 @@ function flatten(node: Node, source: string): Node[] {
   return out;
 }
 
-/** An HTML block's value without the mark it swallowed, when the text ended inside it. */
-function withoutMark(value: string): string {
-  return value.replace(/\s*<!--violet-plain:\d+-->\s*$/, '');
-}
-
-export function plainHtmlPlugin(): MdastPluginEntry {
-  return ({ source }) => {
-    const mark = MARK.exec(source);
-    if (!mark || !plainRenders.open.has(Number(mark[1]))) return null;
-    // The text as written, without the mark: what the blocks are flattened from.
-    const text = source.slice(0, mark.index);
-    return {
-      name: 'violet-plain',
-      options: { position: true },
-      before(root, ctx) {
-        const all = root.children as unknown as Node[];
-        const last = all.at(-1);
-        const blocks = last?.type === 'html' && /^<!--violet-plain:\d+-->$/.test(String(last.value).trim()) ? all.slice(0, -1) : all;
-        if (blocks.length < all.length) ctx.removeNode(root.children.at(-1)!);
-        if (blocks.length <= 1 && (blocks.length === 0 || blocks[0].type === 'paragraph')) return;
-        const children = flatten({ type: 'root', children: blocks, position: { start: { offset: blocks[0].position?.start.offset }, end: { offset: blocks.at(-1)!.position?.end.offset } } }, text);
-        ctx.replaceNode(root.children[0], { type: 'paragraph', children } as never);
-        for (const block of root.children.slice(1, blocks.length)) ctx.removeNode(block);
-      },
-      html(node, ctx) {
-        ctx.replaceNode(node, { type: 'text', value: withoutMark(node.value) });
-      },
-    };
-  };
+/** The plugin that makes a fragment one line: `renderPlain` runs it first. */
+function plainHtmlPlugin(): MdastPluginEntry {
+  return ({ source }) => ({
+    name: 'violet-plain',
+    options: { position: true },
+    before(root, ctx) {
+      const blocks = root.children as unknown as Node[];
+      if (blocks.length === 0 || (blocks.length === 1 && blocks[0].type === 'paragraph')) return;
+      const children = flatten({ type: 'root', children: blocks, position: { start: { offset: blocks[0].position?.start.offset }, end: { offset: blocks.at(-1)!.position?.end.offset } } }, source);
+      ctx.replaceNode(root.children[0], { type: 'paragraph', children } as never);
+      for (const block of root.children.slice(1)) ctx.removeNode(block);
+    },
+    html(node, ctx) {
+      ctx.replaceNode(node, { type: 'text', value: node.value });
+    },
+  });
 }
