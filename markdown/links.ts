@@ -25,7 +25,7 @@
  *   sets the link's attributes (`.class`, `#id`, `key=value`), as in
  *   Python-Markdown, kramdown and Pandoc.
  *
- * Text inside links, headings and code is left alone.
+ * Text inside links, headings, code and a text directive's label is left alone.
  */
 import type { MdastPluginEntry } from 'satteri';
 import type { Link, PhrasingContent, Text } from 'mdast';
@@ -59,16 +59,16 @@ const STAGES = listPattern('Stage');
 /**
  * "Q3", and "q3" in prose, but not a quarter: one with a year ("Q1 2027",
  * "Q1-2027", "2027 Q1", "FY2027 Q1", "Q1 FY27", "Q1-FY27", "Q1 FY2027"), or
- * Q1 to Q4 after a word that names a time ("in Q4", "by Q2", "next Q1",
- * "end of Q3") or before one that a quarter takes ("Q3 revenue", "Q4
+ * Q1 to Q4 after a word only a time takes ("next Q1", "late Q2", "end of
+ * Q3") or before one that a quarter takes ("Q3 revenue", "Q4
  * goals"). Nor one in an address or a name ("?q1=foo", "#q2", "q3.json",
  * "Q3.json", "q4-flag").
  */
 const QUESTIONS = new RegExp(
   [
     String.raw`(?<!(?:(?:19|20)\d\d|[Ff][Yy]\s?\d\d)[\s-]?)`,
-    // Q1 to Q4 after a word that names a time.
-    String.raw`(?!(?<=\b(?:[Ii]n|[Bb]y|[Dd]uring|[Uu]ntil|[Tt]ill|[Bb]efore|[Aa]fter|[Tt]hrough|[Ss]ince|[Tt]his|[Nn]ext|[Ll]ast|[Ee]arly|[Ll]ate|[Mm]id|[Ee]nd\s+of|[Ss]tart\s+of)[\s-]+)[Qq][1-4]\b)`,
+    // Q1 to Q4 after a word only a time takes: "in Q3" or "before Q1" may well be the question.
+    String.raw`(?!(?<=\b(?:[Nn]ext|[Ll]ast|[Ee]arly|[Ll]ate|[Mm]id|[Ee]nd\s+of|[Ss]tart\s+of)[\s-]+)[Qq][1-4]\b)`,
     String.raw`(?:\bQ\d+\b(?![=.]\w)|(?<![\w?&=/#.-])q\d+\b(?![=.\-_]\w))`,
     String.raw`(?![\s-]?(?:[Ff][Yy]\s?(?:(?:19|20)\d\d|\d\d)|(?:19|20)\d\d)\b)`,
     // Q1 to Q4 before a word that a quarter takes.
