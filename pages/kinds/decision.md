@@ -65,4 +65,5 @@ one that does not. When the owner confirms it, `status` becomes `locked`, `date`
 the day they said so, `proposed` the earlier date, and `confirmed` their words. A later decision that
 replaces part of it adds `supersedes` on its own page and `superseded_by`
 here, each naming the part. A decision that amends it works the same way,
-with `amends` on its own page and `amended_by` here.
+with `amends` on its own page and `amended_by` here; it too stays `locked`
+and keeps its `date`.
