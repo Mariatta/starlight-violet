@@ -112,9 +112,9 @@ export function notesLoader(): Loader {
       ];
 
       const render = async (body: string, fileURL: URL) => {
-        // A body whose title line came off may now start with a horizontal rule, which
-        // renderMarkdown would read as front matter, dropping everything up to the next one.
-        // An empty comment first keeps it a rule.
+        // A body that starts with a horizontal rule (right under the page's front matter or
+        // its title) would be read by renderMarkdown as front matter, dropping everything up
+        // to the next rule. An empty comment first keeps it a rule.
         const rendered = await renderMarkdown(/^\s*(?:---|\+\+\+)/.test(body) ? `<!-- -->\n${body}` : body, { fileURL });
         return { ...rendered, html: addHeadingLinks(rendered.html) };
       };
