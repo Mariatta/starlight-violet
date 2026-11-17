@@ -18,8 +18,9 @@ import { FROM_PAGE, IN_ANCHOR, markAnchoredText } from './links';
 type Attributes = Record<string, string | null | undefined>;
 
 function cell(value: unknown): string {
-  // A pipe already escaped (a title taken from a heading as written, `A \| B`) stays as it is.
-  return String(value ?? '').replace(/(?<!\\)\|/g, '\\|').replace(/\r?\n/g, ' ');
+  // A pipe already escaped (a title taken from a heading as written, `A \| B`) stays as it is;
+  // one after an even run of backslashes (`A \\| B`) is not escaped, so it is.
+  return String(value ?? '').replace(/(?<!\\)((?:\\\\)*)\|/g, '$1\\|').replace(/\r?\n/g, ' ');
 }
 
 /** A Markdown table; a column empty in every row is left out. */

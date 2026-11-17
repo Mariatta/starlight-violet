@@ -208,12 +208,14 @@ type Raw = Record<string, unknown>;
 
 /**
  * A task's or PR's title from its heading, as written: the shortcodes put it
- * back into Markdown, so an escape such as `\<br\>` must survive. Code marks
- * are left out, as a split page's part titles leave them out. The text
- * without Markdown is the fallback for a heading whose marks wrap its number.
+ * back into Markdown, so an escape such as `\<br\>` must survive, and so
+ * must code marks: without them `` `<details>` `` would become a tag. (A
+ * split page's part titles leave code marks out, as they show as plain
+ * text.) The text without Markdown is the fallback for a heading whose
+ * marks wrap its number.
  */
 function headingTitle(pattern: RegExp, heading: Heading): string {
-  return plain((pattern.exec(heading.source) ?? pattern.exec(heading.text))![2]);
+  return (pattern.exec(heading.source) ?? pattern.exec(heading.text))![2].trim();
 }
 
 /** The plan in one file: front matter entries joined to their headings. Undefined when it declares none. */
