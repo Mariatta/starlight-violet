@@ -25,5 +25,5 @@ If you are a coding agent asked to write or edit notes in a project that uses Vi
 ## Optional
 
 - [Why Violet](https://mariatta.ca/starlight-violet/why-violet/): How Violet came out of planning software with AI agents, and when to use something else
-- [Examples](https://mariatta.ca/starlight-violet/examples/): A small notes folder with a page of every kind, rendered by Violet
+- [Examples](https://mariatta.ca/starlight-violet/examples/): The notes of a made-up project, rendered by Violet, with a page of every kind
 - [Source on GitHub](https://github.com/mariatta/starlight-violet): The plugin, its guide pages under `pages/`, and this site under `docs/`

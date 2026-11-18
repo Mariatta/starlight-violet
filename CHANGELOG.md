@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The decision kind's contract says what superseding or amending a decision does to it: one superseded whole has its `date` moved to the day it was superseded, with the day it was locked kept in `history`; one superseded in part, or amended, stays `locked`, keeps its `date`, and names the part in `superseded_by` or `amended_by`.
 - A handoff's header separates its decisions with commas ("decision 0001, decision 0003"). Before, two or more ran together as "decision 0001decision 0003".
 - A page whose body starts with a horizontal rule (`---` right under its front matter or its `# Title`) keeps everything up to the next rule. Before, the rendered page read that stretch as front matter and dropped it, or failed the build when it was not valid YAML.
 - References in a work folder link: "Q3" (and "Q3 to Q9") to that question on the folder's handoff; "SPEC", "PLAN.md §6 and §6.4", "SPEC 3.2", "SPEC section 7" and "SPEC principle 2" to that page and section, for any capitalised page of the folder except README.md (a word prose writes in capitals anyway, such as TODO, NOTES or CLAUDE, links only as "TODO.md" or with a section); "task 1.2", "Stage 1" and "Stages 6 and 7" to that row of the plan's numbered table, whose rows now get anchors (`#task-1-2`, `#stage-1`). "Task 3" also matches with dotted numbers, and in lower case for a dotted number only ("task 1.2"), since "task 2" in a sentence is as often a count.
