@@ -2,27 +2,63 @@
 kind: planning
 type: plan
 split: true
-status: approved
-updated: 2026-11-11
+status: in-progress
+created: 2026-10-31
+updated: 2026-11-12
+note: "PR 2 is under way: Task 5 is in review and Task 6 in progress. Task 8 waits on [Q3](../../handoffs/export-jobs.md#q3)."
+issues:
+  - ref: "foodie-club-app#12"
+    title: "Export screen for organizers"
 stack:
-  - "Astro"
-  - "Starlight"
+  - "Django 5.2"
+  - "Celery with Redis"
+  - "S3 for the files"
+  - "Postgres"
+related:
+  - title: "Spec"
+    link: "spec.md"
+    note: "What this plan builds"
+  - title: "Large exports time out"
+    link: "../../risks/export-timeouts.md"
+    note: "The risk PR 2 answers"
 tasks:
   - { number: 1, status: done }
-  - { number: 2, status: in-progress, issue: "#3" }
-  - { number: 3, status: todo }
+  - { number: 2, status: done }
+  - { number: 3, status: done }
+  - { number: 4, status: done, issue: "foodie-club-app#15" }
+  - { number: 5, status: in-review, issue: "foodie-club-app#16" }
+  - { number: 6, status: in-progress }
+  - { number: 7, status: todo }
+  - { number: 8, status: todo }
 prs:
   - number: 1
     branch: export-screen/01-foundation
-    tasks: [1, 2]
-    status: in-review
+    tasks: [1, 2, 3]
+    ships: "The model, the writers and the screen, behind a flag"
+    status: done
+    pull: "foodie-club-app#14"
   - number: 2
-    branch: export-screen/02-history
-    tasks: [3]
-    ships: "A list of past exports"
+    branch: export-screen/02-background-jobs
+    tasks: [4, 5, 6]
+    ships: "Every export built by the export worker, stored and emailed as a link; the screen turned on"
+    status: in-progress
+    pull: "foodie-club-app#18"
+  - number: 3
+    branch: export-screen/03-history-and-limits
+    tasks: [7, 8]
+    ships: "Recent exports on the screen, and a cap per organizer"
 ---
 
 # Export screen plan
+
+Build the [spec](spec.md) in three pull requests. PR 1 lays the groundwork
+behind a flag, so nothing exports in the request (decision 0003). PR 2 runs
+every export in the export worker and turns the screen on. PR 3 is polish
+and a limit.
+
+Each PR starts from `main` once the one before it has merged. Everything new
+lives in the `exports` app; leave `events/` and the event reminder emails
+alone, though the export worker shares their Redis.
 
 ::prs
 
@@ -30,38 +66,150 @@ prs:
 
 # PR 1: Foundation
 
-### Task 1: The screen
+The model, the writers and the screen, behind the `export_screen` flag.
+The screen creates Queued rows but nothing builds them until PR 2, so
+organizers do not see it yet.
 
-Tasks 1 to 2 make up PR 1.
+### Task 1: The `Export` model
 
-### Task 2: The download
+An `Export` row per request: which organizer, which type, the range, the status,
+when it became Ready (`ready_at`), the error if it Failed (`error`), and
+later the file. Statuses as in the
+[spec](spec.md#statuses).
 
-Builds on Task 1. See [the history](#task-3-the-history) for what comes next.
+Files: `exports/models.py`, a migration. Test: `exports/tests/test_models.py`,
+that a new export is Queued, that `ready_at` is set only on Ready, and that
+`error` is set only on Failed.
+
+### Task 2: The export screen
+
+The form from the [mockup](brainstorm.md#where-we-landed), behind the
+organizer permission. Builds on Task 1.
+
+Files: `exports/views.py`, `exports/templates/exports/screen.html`,
+`exports/urls.py`, and the `export_screen` flag, off (`EXPORT_SCREEN = False`), in
+`foodieclub/settings.py`.
+Test: `exports/tests/test_screen.py`, that a member without
+the permission gets a 403 and that the form creates a Queued export.
+
+### Task 3: One writer per type, CSV \| zip
+
+`RsvpWriter` and `VenueWriter` write CSV rows for a date range;
+`PhotoArchiveWriter` streams the photos of the events in the range into a
+zip. Tasks 1 to 3 make up PR 1.
+
+Files: `exports/writers.py`. Test: `exports/tests/test_writers.py`, the rows
+of a two-event range and the names in a small archive.
+
+# PR 2: Background jobs with `build_export`
+
+Every export runs in the worker. This is the PR that closes the
+[timeout risk](../../risks/export-timeouts.md).
+
+### Task 4: Run exports in a Celery job
+
+`build_export(export_id)` loads the row, runs the writer from Task 3 into a
+temporary file, and moves the status from Queued to Building to Ready, or
+Failed with the error.
+
+Files: `exports/tasks.py`, the worker's queue in `foodieclub/celery.py`. Test:
+`exports/tests/test_tasks.py`, run eagerly: a writer that raises leaves the row
+Failed with its error.
+
+### Task 5: Store the file with an expiring link
+
+Upload to the private bucket under `exports/<id>.csv` or `.zip` and keep the key on
+the row. Links last seven days ([Q1](../../handoffs/export-jobs.md#q1));
+a nightly job deletes the file and marks the row Expired.
 
 **Interfaces:**
 
-- Produces: `download(export_id)`.
+- Consumes: the temporary file from Task 4.
+- Produces: `Export.download_url(user)`, which returns `None` unless the
+  export is Ready and `user` is the organizer who started it, and otherwise
+  signs a link for five minutes.
+
+Files: `exports/storage.py` (the upload and the signed link), `exports/models.py`
+(`download_url`), `exports/tasks.py` (`expire_exports`), the nightly schedule
+in `foodieclub/celery.py`. Test: `exports/tests/test_expiry.py`, in the steps
+below.
+
 - [ ] **Step 1: Write the failing test**
 
 ```python
-def test_download_returns_the_file(): ...
+from datetime import timedelta
+
+import pytest
+
+from exports.tasks import expire_exports
+
+
+@pytest.mark.django_db
+def test_expired_export_has_no_download(export_factory, freezer):
+    export = export_factory(status="ready")
+    freezer.move_to(export.ready_at + timedelta(days=8))
+    expire_exports()
+    export.refresh_from_db()
+    assert export.status == "expired"
+    assert export.download_url(export.organizer) is None
 ```
 
 - [ ] **Step 2: Run it to see it fail**
 
-Run: `pytest tests/test_download.py -v`
-Expected: FAIL
+Run: `pytest exports/tests/test_expiry.py -v`
+Expected: an error while collecting the test, as `expire_exports` cannot be
+imported from `exports.tasks`.
 
-- [ ] **Step 3: Make it pass, and commit**
+- [ ] **Step 3: Add `expire_exports` and the nightly schedule**
 
----
+- [ ] **Step 4: Run the whole exports suite, and commit**
 
-# PR 2: History
+Run: `pytest exports -v`
+Expected: PASS
 
-### Task 3: The history
+### Task 6: Email the link
 
-A list of past exports, after Task 2.
+Send "Your photos export is ready" with the link when the job finishes,
+and "Your export failed" with a retry link when it does not. The retry link,
+and `./manage.py export retry <id>` for whoever runs the server, queue a
+Failed export again and clear its `error`. Like the download, the link works
+only for the organizer who started the export. Whether the screen also shows a notice is
+[Q4](../../handoffs/export-jobs.md#q4). Needs Task 5's link. With the emails
+in, the task removes the `export_screen` flag, so organizers see the screen.
+
+Files: `exports/emails.py`; the `export` command, moved from
+`foodieclub/management/commands/export.py` to
+`exports/management/commands/export.py`, with `retry` next to `rsvps`;
+`exports/views.py` and `exports/urls.py` for the retry link; the flag in
+`foodieclub/settings.py`. Test: `exports/tests/test_emails.py`, both emails'
+text and links; `exports/tests/test_retry.py`, that `retry` moves a Failed
+export back to Queued with no `error`, and that the link refuses anyone but
+the organizer who started it.
+
+# PR 3: History and limits
+
+### Task 7: Recent exports in a `<table>`
+
+The last 20 exports for the signed-in organizer, newest first, with a Download
+link while Ready.
+
+Files: `exports/views.py`, `exports/templates/exports/screen.html`. Test:
+`exports/tests/test_screen.py`, that another organizer's exports are not
+listed and that only Ready rows have a link.
+
+### Task 8: A cap per organizer
+
+Refuse a new export over the hourly limit, with a message saying when the
+next one is allowed. The number waits on Q3; the approach is decision 0004.
+
+Files: `exports/limits.py`, `exports/views.py`. Test:
+`exports/tests/test_limits.py`, that the export over the limit is refused with
+the time of the next one allowed.
 
 # Self-review notes
 
-Every task has its PR: Tasks 1 to 3.
+- Every task has its PR: Tasks 1 to 8.
+- The tasks land in order. Task 6 emails the link Task 5 makes, and both need
+  Task 4's job.
+- One new process, the export worker on its own queue (decision 0003).
+  Redis already runs for the event reminder emails.

@@ -71,7 +71,7 @@ export default defineConfig({
           sidebar: false,
           github: { org: 'mariatta', repo: 'starlight-violet' },
           sourceLink: 'edit',
-          owner: 'The owner',
+          owner: 'Sofia Bianchi',
           files: { prefix: '/files/' },
           sectionDescriptions: {
             handoffs: 'What one session leaves so the next can start',
