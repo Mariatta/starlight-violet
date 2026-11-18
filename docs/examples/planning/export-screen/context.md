@@ -31,13 +31,11 @@ chat.
 Counted from the `export` lines in the server's shell history for that
 week; sizes and times from the command's own log line.
 
-| Export | Runs per week | Rows | Photos | Slowest run (seconds) |
-|---|---:|---:|---:|---:|
-| RSVPs | 9 | 36 | | 3 |
-| Venues | 2 | 61 | | 2 |
-| Photos | 1 | | 1,840 | 412 |
-
-The photos archive came to 2.9 GB.
+| Export | Runs per week | Typical rows | Typical photos | Archive (GB) | Slowest run (seconds) |
+|---|---:|---:|---:|---:|---:|
+| RSVPs | 9 | 36 | | | 3 |
+| Venues | 2 | 61 | | | 2 |
+| Photos | 1 | | 1,840 | 2.9 | 412 |
 
 Photos is the export that would time out behind a web request: the
 platform cuts requests off at 30 seconds. That is the

@@ -65,7 +65,7 @@ says, exports never run in the request.
    ./manage.py export retry <id>
    ```
 
-4. Watch it finish on the export screen, or with
+4. Watch its row in `Export` reach Ready, or the job with
    `celery -A foodieclub inspect active`.
 :::
 

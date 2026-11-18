@@ -5,7 +5,7 @@ split: true
 status: in-progress
 created: 2026-10-31
 updated: 2026-11-12
-note: "PR 2 is under way: Task 5 is in review, Task 6 is next. Task 8 waits on [Q3](../../handoffs/export-jobs.md#q3)."
+note: "PR 2 is under way: Task 5 is in review and Task 6 in progress. Task 8 waits on [Q3](../../handoffs/export-jobs.md#q3)."
 issues:
   - ref: "foodie-club-app#12"
     title: "Export screen for organizers"
@@ -73,11 +73,13 @@ organizers do not see it yet.
 ### Task 1: The `Export` model
 
 An `Export` row per request: which organizer, which type, the range, the status,
-when it became Ready (`ready_at`), and later the file. Statuses as in the
+when it became Ready (`ready_at`), the error if it Failed (`error`), and
+later the file. Statuses as in the
 [spec](spec.md#statuses).
 
 Files: `exports/models.py`, a migration. Test: `exports/tests/test_models.py`,
-that a new export is Queued and that `ready_at` is set only on Ready.
+that a new export is Queued, that `ready_at` is set only on Ready, and that
+`error` is set only on Failed.
 
 ### Task 2: The export screen
 
@@ -125,14 +127,22 @@ a nightly job deletes the file and marks the row Expired.
   export is Ready and `user` is the organizer who started it, and otherwise
   signs a link for five minutes.
 
+Files: `exports/storage.py` (the upload and the signed link), `exports/models.py`
+(`download_url`), `exports/tasks.py` (`expire_exports`), the nightly schedule
+in `foodieclub/celery.py`. Test: `exports/tests/test_expiry.py`, in the steps
+below.
+
 - [ ] **Step 1: Write the failing test**
 
 ```python
 from datetime import timedelta
 
+import pytest
+
 from exports.tasks import expire_exports
 
 
+@pytest.mark.django_db
 def test_expired_export_has_no_download(export_factory, freezer):
     export = export_factory(status="ready")
     freezer.move_to(export.ready_at + timedelta(days=8))
@@ -145,7 +155,8 @@ def test_expired_export_has_no_download(export_factory, freezer):
 - [ ] **Step 2: Run it to see it fail**
 
 Run: `pytest exports/tests/test_expiry.py -v`
-Expected: FAIL, `expire_exports` cannot be imported from `exports.tasks`.
+Expected: an error while collecting the test, as `expire_exports` cannot be
+imported from `exports.tasks`.
 
 - [ ] **Step 3: Add `expire_exports` and the nightly schedule**
 
@@ -160,11 +171,13 @@ Send "Your photos export is ready" with the link when the job finishes,
 and "Your export failed" with a retry link when it does not. The retry link,
 and `./manage.py export retry <id>` for whoever runs the server, queue a
 Failed export again. Whether the screen also shows a notice is
-[Q4](../../handoffs/export-jobs.md#q4). Needs Task 5's link.
+[Q4](../../handoffs/export-jobs.md#q4). Needs Task 5's link. With the emails
+in, the task removes the `export_screen` flag, so organizers see the screen.
 
-Files: `exports/emails.py`, `exports/management/commands/export.py`. Test:
-`exports/tests/test_emails.py`, both emails' text and links, and that `retry`
-moves a Failed export back to Queued.
+Files: `exports/emails.py`; `retry` added to the `export` command that
+`export rsvps` already is; `exports/views.py` and `exports/urls.py` for the
+retry link; the flag's setting. Test: `exports/tests/test_emails.py`, both
+emails' text and links, and that `retry` moves a Failed export back to Queued.
 
 # PR 3: History and limits
 
