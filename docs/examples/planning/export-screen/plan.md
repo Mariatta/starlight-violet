@@ -87,7 +87,8 @@ The form from the [mockup](brainstorm.md#where-we-landed), behind the
 organizer permission. Builds on Task 1.
 
 Files: `exports/views.py`, `exports/templates/exports/screen.html`,
-`exports/urls.py`. Test: `exports/tests/test_screen.py`, that a member without
+`exports/urls.py`, and the `export_screen` flag, off, in `foodieclub/settings.py`.
+Test: `exports/tests/test_screen.py`, that a member without
 the permission gets a 403 and that the form creates a Queued export.
 
 ### Task 3: One writer per type, CSV \| zip
@@ -170,14 +171,19 @@ Expected: PASS
 Send "Your photos export is ready" with the link when the job finishes,
 and "Your export failed" with a retry link when it does not. The retry link,
 and `./manage.py export retry <id>` for whoever runs the server, queue a
-Failed export again. Whether the screen also shows a notice is
+Failed export again and clear its `error`. Like the download, the link works
+only for the organizer who started the export. Whether the screen also shows a notice is
 [Q4](../../handoffs/export-jobs.md#q4). Needs Task 5's link. With the emails
 in, the task removes the `export_screen` flag, so organizers see the screen.
 
-Files: `exports/emails.py`; `retry` added to the `export` command that
-`export rsvps` already is; `exports/views.py` and `exports/urls.py` for the
-retry link; the flag's setting. Test: `exports/tests/test_emails.py`, both
-emails' text and links, and that `retry` moves a Failed export back to Queued.
+Files: `exports/emails.py`; the `export` command, moved from
+`foodieclub/management/commands/export.py` to
+`exports/management/commands/export.py`, with `retry` next to `rsvps`;
+`exports/views.py` and `exports/urls.py` for the retry link; the flag in
+`foodieclub/settings.py`. Test: `exports/tests/test_emails.py`, both emails'
+text and links; `exports/tests/test_retry.py`, that `retry` moves a Failed
+export back to Queued with no `error`, and that the link refuses anyone but
+the organizer who started it.
 
 # PR 3: History and limits
 
