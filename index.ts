@@ -73,10 +73,8 @@ function servedFilesPlugin(resolved: ResolvedOptions) {
   };
 }
 
-type Processor = Parameters<typeof isSatteriProcessor>[0];
-
 /** The site's Markdown processor, which must be Astro's Sätteri one: Violet extends it in place. */
-function satteri<P extends Processor>(processor: P) {
+function requireSatteri(processor: Parameters<typeof isSatteriProcessor>[0]) {
   if (!isSatteriProcessor(processor)) {
     throw new Error(`${PACKAGE} needs Astro's Sätteri Markdown processor; this site uses "${processor.name}".`);
   }
@@ -226,7 +224,7 @@ export default function violet(options: VioletOptions): StarlightPlugin {
               // The Sätteri processor is meant to be extended in place, which keeps any
               // plugins the site gave it. Directives (`::prs`, `:task[3]`) are a feature
               // it parses only when asked.
-              const processor = satteri(astroSetupConfig.markdown.processor);
+              const processor = requireSatteri(astroSetupConfig.markdown.processor);
               processor.options.mdastPlugins.push(stepsPlugin(), shortcodesPlugin(), notesLinksPlugin(), rowMarksPlugin(), ...resolved.mdastPlugins);
               processor.options.hastPlugins.push(rowAnchorsPlugin());
               processor.options.features.directive = true;
@@ -242,7 +240,7 @@ export default function violet(options: VioletOptions): StarlightPlugin {
               // and a plain field renders with them and the same plugins. Read once every integration has set
               // up, so one that turns on a feature after Violet (math, smart punctuation) is counted.
               // An integration after Violet may have replaced the processor.
-              const processor = satteri(doneConfig.markdown.processor);
+              const processor = requireSatteri(doneConfig.markdown.processor);
               const features = {
                 gfm: doneConfig.markdown.gfm !== false,
                 smartPunctuation: doneConfig.markdown.smartypants !== false,

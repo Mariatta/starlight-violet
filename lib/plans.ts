@@ -151,7 +151,7 @@ interface Heading {
   slug: string;
   /** The text as written in the source, escapes and Markdown included: what a task's or PR's title is taken from. */
   source: string;
-  /** Whether it is one of the page's own headings, not one inside a quote or list item. */
+  /** Whether it is one of the page's own headings, not one inside a quote, a list item or a `:::` block. */
   top: boolean;
 }
 
@@ -295,7 +295,7 @@ export function readPlan(file: string): Plan | undefined {
     const number = Number(raw.number);
     const heading = prHeadings.get(number);
     if (rawPrs.length > 0 && !heading) {
-      // A split page's parts start at its own # headings; one inside a ::: block belongs to that block.
+      // A split page's parts start at its own # headings; one inside a quote, a list or a ::: block belongs to that block.
       const nested = nestedPrs.get(number);
       // The build joins problems with "; ", so this one's clauses are joined with commas.
       const part = isSplit(data) && nested === 1 ? ', and on a split page it does not start a part either' : '';
