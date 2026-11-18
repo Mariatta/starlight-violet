@@ -16,6 +16,12 @@ describe('table rows', () => {
       linksIn('split/notes', 'SA').map(({ href }) => href),
       ['/split/plan/part-b/#stage-1'],
     );
+    // Row 2 has no heading of its name anywhere, so it keeps its own anchor on its part.
+    assert.ok(ids('split/plan/part-b').includes('stage-2'));
+    assert.deepEqual(
+      linksIn('split/notes', 'SB').map(({ href }) => href),
+      ['/split/plan/part-b/#stage-2'],
+    );
   });
 });
 

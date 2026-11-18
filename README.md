@@ -127,16 +127,17 @@ checkout into it and builds it; `make docs-dev` serves it at
 http://localhost:8009/starlight-violet/.
 
 `make test` runs Violet's tests. It builds a small site, `test/site/`,
-from the notes in `test/notes/` (with the docs site's packages), then
+from the notes in `test/notes/` (with its own packages, and Violet from
+this checkout installed as a copy, as in `docs/`), then
 checks the pages it wrote with Node's test runner (`test/*.test.mjs`):
 which references link and where to, the handoff header, table row
 anchors, split plans, that every link inside the site reaches a page and
 an anchor it has, and that notes the build must refuse are refused with
 a message naming the page. A new case is usually a sentence in
 `test/notes/work/prose.md`, labelled like the others, and a line in
-`test/links.test.mjs`. CI runs the tests on every pull request. Like
-`make docs-build`, `make test` reinstalls Violet into `docs/`, so stop
-`make docs-dev` first.
+`test/links.test.mjs`. CI runs the tests on every pull request. `make
+test` reinstalls Violet into `test/site/` each time, so it always tests
+this checkout, and leaves a running `make docs-dev` alone.
 
 The docs site, and any site developing against a local checkout, installs Violet
 as a copy rather than a symlink (`install-links=true` in its

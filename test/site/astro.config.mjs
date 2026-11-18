@@ -1,23 +1,26 @@
 // The site Violet's tests build: the notes in test/notes, with Violet from
-// this checkout (installed in docs/, which `make test` links here). The tests
-// read the pages it writes. It has a base, as the docs site does, so a link
-// that loses it fails; its origin is one no fixture links to.
+// this checkout (installed here as a copy, which `make test` refreshes). The
+// tests read the pages it writes.
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import violet from 'starlight-violet';
 import { checklist } from './src/kinds/checklist';
+import { BASE, ORIGIN } from './address.mjs';
 
 export default defineConfig({
-  site: 'https://violet.test',
-  base: '/violet-tests/',
+  site: ORIGIN,
+  base: BASE,
   trailingSlash: 'always',
-  // Its own caches, Astro's and Vite's, not the docs site's that the linked node_modules would give it.
+  // Caches in the site's own folder, not in node_modules: the failure tests build copies of
+  // this site at the same time, all linking the same node_modules, and would clash there.
   cacheDir: './.astro-cache',
   vite: { cacheDir: './.astro-cache/vite' },
   integrations: [
     starlight({
       title: 'Violet tests',
       pagination: false,
+      // No test reads the search index.
+      pagefind: false,
       plugins: [
         violet({
           notes: '../notes',

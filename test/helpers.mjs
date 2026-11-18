@@ -6,19 +6,22 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BASE } from './site/address.mjs';
 
 export const SITE = join(dirname(fileURLToPath(import.meta.url)), 'site');
 export const DIST = join(SITE, 'dist');
-/** The test site's origin and base (see site/astro.config.mjs). */
-export const ORIGIN = 'https://violet.test';
-export const BASE = '/violet-tests/';
+/** The test site's origin and base, as its config has them. */
+export { BASE, ORIGIN } from './site/address.mjs';
+
+/** What to do when the test site is missing: `make test` installs and builds it. */
+export const NOT_BUILT = 'the test site is not built: run make test, which installs and builds it first';
 
 const pages = new Map();
 
 /** A page's HTML, by its address without the base: `html('work/prose')`, or `html('')` for the home page. */
 export function html(address) {
   if (!pages.has(address)) {
-    if (!existsSync(DIST)) throw new Error('the test site is not built: run make test, which builds it first');
+    if (!existsSync(DIST)) throw new Error(NOT_BUILT);
     const file = join(DIST, address, 'index.html');
     if (!existsSync(file)) throw new Error(`no page at ${address}`);
     pages.set(address, readFileSync(file, 'utf8'));
@@ -53,7 +56,8 @@ function local(href) {
  * outer one fails.
  */
 function linksOf(content) {
-  return [...content.matchAll(/<a\s[^>]*?href="([^"]*)"[^>]*>((?:(?!<a[\s>]).)*?)<\/a>/gs)].map(([, href, inner]) => ({ href: local(href), raw: href, text: strip(inner) }));
+  // `href` as its own attribute, not the end of `data-href`, in either kind of quotes.
+  return [...content.matchAll(/<a\s(?:[^>]*?\s)?href=(["'])(.*?)\1[^>]*>((?:(?!<a[\s>]).)*?)<\/a>/gs)].map(([, , href, inner]) => ({ href: local(href), raw: href, text: strip(inner) }));
 }
 
 /** Every link in the main content. */

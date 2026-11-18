@@ -21,20 +21,20 @@ docs-ci:
 
 # Violet's tests: build the site in test/site from the notes in test/notes,
 # with Violet from this checkout, then check the pages it wrote (test/*.test.mjs).
-# The test site uses docs' packages, linked in.
-test: docs-install
+# The test site has its own packages, with Violet installed as a copy as in docs/,
+# so a running make docs-dev is left alone; make test reinstalls Violet each time.
+test:
+	cd test/site && rm -rf node_modules/starlight-violet && npm install --silent
 	$(MAKE) test-run
 
-# CI: docs-ci has installed the packages already.
+# CI: install exactly what the test site's lockfile says.
 test-ci:
-	@test -d docs/node_modules/starlight-violet || { echo "docs/node_modules has no Violet: run make test, or make docs-ci first"; exit 1; }
+	cd test/site && npm ci
 	$(MAKE) test-run
 
-# Tests the copy of Violet in docs/node_modules, which make test reinstalls first;
-# on its own, after editing Violet, it tests the copy from the last install.
+# What make test and make test-ci run once the packages are in.
 test-run:
-	rm -rf test/site/node_modules
-	ln -s ../../docs/node_modules test/site/node_modules
+	@test -d test/site/node_modules/starlight-violet || { echo "test/site has no packages: run make test"; exit 1; }
 	cd test/site && npx --no-install astro build
-	cd docs && npx tsc --noEmit -p ../test/site
+	cd test/site && npx --no-install tsc --noEmit -p .
 	node --test 'test/*.test.mjs'
