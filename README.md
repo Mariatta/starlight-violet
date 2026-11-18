@@ -31,7 +31,9 @@ What it adds on top of Starlight:
 - **A landing page.** `::sections` makes a card per top-level folder, each
   leading to that section's page, which lists its pages.
 - **Links that resolve.** Relative links between notes become page links;
-  images and other files can be served from the notes folder; "decision 0011"
+  images and other files can be served from the notes folder; "Q3" links to
+  the folder's handoff question, "SPEC 3.2" and "PLAN.md §6" to that section,
+  "Stage 1" and "task 1.2" to that row of the plan; "decision 0011"
   links to the decision.
 - **Layout.** Heading links on every heading, a sidebar built from the notes'
   folders, and a wider content column for table-heavy pages.

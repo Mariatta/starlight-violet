@@ -1,8 +1,9 @@
 ---
 /**
  * Starlight's page footer, then Violet's sponsors where the table of
- * contents sidebar, which also shows them, is not on screen. An override for
- * this docs site only; it is not part of the plugin.
+ * contents sidebar, which also shows them, is not on screen, then a credit
+ * line saying who made Violet. An override for this docs site only; it is not
+ * part of the plugin.
  */
 import Default from '@astrojs/starlight/components/Footer.astro';
 import Sponsors from './Sponsors.astro';
@@ -12,3 +13,23 @@ const hasToc = Boolean(Astro.locals.starlightRoute.toc);
 
 <Default {...Astro.props}><slot /></Default>
 <Sponsors placement="footer" always={!hasToc} />
+<!-- Kept out of search, like the sponsors: it is on every page. -->
+<p class="violet-credit" data-pagefind-ignore="all">
+  Violet Astro Starlight Plugin by <a href="https://mariatta.ca/" rel="author">Mariatta</a>
+</p>
+
+<style>
+  /* Sized and coloured like Starlight's own "Built with Starlight" credit. */
+  .violet-credit {
+    margin: 1.5rem auto;
+    text-align: center;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .violet-credit a {
+    color: inherit;
+  }
+  .violet-credit a:hover {
+    color: var(--sl-color-white);
+  }
+</style>

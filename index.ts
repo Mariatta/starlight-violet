@@ -12,6 +12,9 @@ import { relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listMarkdown, sections, sidebarItems, words } from './lib/notes';
 import { notesLinksPlugin } from './markdown/links';
+import { rowAnchorsPlugin, rowMarksPlugin } from './markdown/rows';
+import { setPipeline } from './markdown/plain';
+import { setParseFeatures } from './lib/source';
 import { stepsPlugin } from './markdown/steps';
 import { shortcodesPlugin } from './markdown/shortcodes';
 import {
@@ -68,6 +71,14 @@ function servedFilesPlugin(resolved: ResolvedOptions) {
       server.middlewares.stack.unshift({ route: '', handle });
     },
   };
+}
+
+/** The site's Markdown processor, which must be Astro's Sätteri one: Violet extends it in place. */
+function requireSatteri(processor: Parameters<typeof isSatteriProcessor>[0]) {
+  if (!isSatteriProcessor(processor)) {
+    throw new Error(`${PACKAGE} needs Astro's Sätteri Markdown processor; this site uses "${processor.name}".`);
+  }
+  return processor;
 }
 
 function withSlash(path: string): string {
@@ -213,11 +224,9 @@ export default function violet(options: VioletOptions): StarlightPlugin {
               // The Sätteri processor is meant to be extended in place, which keeps any
               // plugins the site gave it. Directives (`::prs`, `:task[3]`) are a feature
               // it parses only when asked.
-              const processor = astroSetupConfig.markdown.processor;
-              if (!isSatteriProcessor(processor)) {
-                throw new Error(`${PACKAGE} needs Astro's Sätteri Markdown processor; this site uses "${processor.name}".`);
-              }
-              processor.options.mdastPlugins.push(stepsPlugin(), shortcodesPlugin(), notesLinksPlugin(), ...resolved.mdastPlugins);
+              const processor = requireSatteri(astroSetupConfig.markdown.processor);
+              processor.options.mdastPlugins.push(stepsPlugin(), shortcodesPlugin(), notesLinksPlugin(), rowMarksPlugin(), ...resolved.mdastPlugins);
+              processor.options.hastPlugins.push(rowAnchorsPlugin());
               processor.options.features.directive = true;
               if (resolved.kinds.includes('decision')) {
                 injectRoute({ pattern: '/decisions', entrypoint: `${PACKAGE}/routes/decisions.astro`, prerender: true });
@@ -225,6 +234,20 @@ export default function violet(options: VioletOptions): StarlightPlugin {
               if (resolved.files) {
                 injectRoute({ pattern: `${resolved.files.prefix}[...path]`, entrypoint: `${PACKAGE}/routes/files.ts`, prerender: true });
               }
+            },
+            'astro:config:done'({ config: doneConfig }) {
+              // Headings, tables and plan parts are read with the same parser and features the pages render with,
+              // and a plain field renders with them and the same plugins. Read once every integration has set
+              // up, so one that turns on a feature after Violet (math, smart punctuation) is counted.
+              // An integration after Violet may have replaced the processor.
+              const processor = requireSatteri(doneConfig.markdown.processor);
+              const features = {
+                gfm: doneConfig.markdown.gfm !== false,
+                smartPunctuation: doneConfig.markdown.smartypants !== false,
+                ...processor.options.features,
+              };
+              setParseFeatures(features);
+              setPipeline({ features, mdastPlugins: processor.options.mdastPlugins, hastPlugins: processor.options.hastPlugins });
             },
           },
         });

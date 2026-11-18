@@ -42,7 +42,7 @@ task 4, is that still right?". I can't answer from memory. I need to pull
 up decision 0011, read what it said and why, and see what it superseded,
 quickly enough not to lose the thread. Scrolling a raw Markdown file in an
 editor is not that. A rendered page is: the status at the top, the dates,
-the related decisions as links, "task 12" linked to the task.
+the related decisions as links, "Task 12" linked to the task.
 
 So I started rendering the notes as a site, for one project. Then I was
 working on more projects that follow the same process, agents planning and

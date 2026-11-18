@@ -1,0 +1,22 @@
+# Netlify builds deploy previews of the docs site for pull requests.
+# Production stays on GitHub Pages (.github/workflows/docs.yml).
+#
+# Build from the repo root, not docs/: the site installs Violet from "file:..".
+
+[build]
+  command = "make docs-ci"
+  publish = "docs/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Skip Netlify builds of main.
+[context.production]
+  ignore = "exit 0"
+
+# The site is built with base /starlight-violet/, so its links start with that
+# path, but the files sit at the root of docs/dist. Serve them from there.
+[[redirects]]
+  from = "/starlight-violet/*"
+  to = "/:splat"
+  status = 200

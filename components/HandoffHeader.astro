@@ -5,6 +5,7 @@ import { Badge } from '@astrojs/starlight/components';
 import { STATUS_VARIANT } from '../kinds/handoff';
 import { statusLabel } from '../kinds';
 import { readDecisions } from '../lib/records';
+import { questionId } from '../lib/references';
 import { getOptions } from '../options';
 
 interface Props {
@@ -24,7 +25,7 @@ const decisionUrls = new Map(readDecisions().map((d) => [d.number, d.url]));
       <tr><th>To</th><td>{data.to}</td></tr>
       <tr><th>Date</th><td>{date}</td></tr>
       {data.decisions.length > 0 && (
-        <tr><th>Decisions</th><td>{data.decisions.map((d) => decisionUrls.has(d) ? <a href={decisionUrls.get(d)}>decision {d}</a> : <span>decision {d}</span>)}</td></tr>
+        <tr><th>Decisions</th><td>{data.decisions.map((d, i) => <>{i > 0 && ', '}{decisionUrls.has(d) ? <a href={decisionUrls.get(d)}>decision {d}</a> : <span>decision {d}</span>}</>)}</td></tr>
       )}
       <tr><th>Read first</th><td><ol class="inputs">{data.inputs.map((i) => <li><code>{i}</code></li>)}</ol></td></tr>
     </tbody>
@@ -38,12 +39,12 @@ const decisionUrls = new Map(readDecisions().map((d) => [d.number, d.url]));
       <thead><tr><th></th><th>Question</th><th>Blocks</th><th>Owner</th><th>Answer</th></tr></thead>
       <tbody>
         {data.open_questions.map((q) => (
-          <tr id={q.id.toLowerCase()} class={q.answer ? 'answered' : 'open'}>
+          <tr id={questionId(q.id)} class={q.answer ? 'answered' : 'open'}>
             <td><code>{q.id}</code></td>
             <td set:html={q.question} />
-            <td>{q.blocks}</td>
+            <td set:html={q.blocks ?? ''} />
             <td>{q.owner ?? getOptions().owner ?? ''}</td>
-            <td>{q.answer ?? <em>open</em>}</td>
+            {q.answer ? <td set:html={q.answer} /> : <td><em>open</em></td>}
           </tr>
         ))}
       </tbody>
@@ -51,5 +52,5 @@ const decisionUrls = new Map(readDecisions().map((d) => [d.number, d.url]));
   )}
 
   <h2 id="next-steps">Next steps</h2>
-  <ol class="steps">{data.next_steps.map((s) => <li>{s}</li>)}</ol>
+  <ol class="sl-steps" role="list">{data.next_steps.map((s) => <li><p set:html={s} /></li>)}</ol>
 </div>

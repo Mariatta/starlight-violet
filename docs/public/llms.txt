@@ -1,0 +1,29 @@
+# Violet
+
+> Violet (`starlight-violet` on npm) is a Starlight plugin that renders a folder of Markdown notes as a documentation site, read in place from the repo: plans, reference pages, architecture decisions and handoffs between agents. Each page declares a kind in front matter, and the build checks it against that kind's schema and required sections.
+
+If you are a coding agent asked to write or edit notes in a project that uses Violet, read the writing guide first and follow it. It ships inside the package, so you can read it without the site running: `node_modules/starlight-violet/pages/writing.md` in the site's folder, with the contract for each kind in the `kinds/` folder next to it. A site can add its own rules on top; where they differ, the site's rules win.
+
+## Writing notes
+
+- [Writing notes](https://mariatta.ca/starlight-violet/guide/writing/): How to write each kind of page, and when to use a table, a list or prose
+- [Pointing your agent here](https://mariatta.ca/starlight-violet/guide/writing/#pointing-your-agent-here): What to add to a project's AGENTS.md or CLAUDE.md
+- [Planning page](https://mariatta.ca/starlight-violet/guide/kinds/planning/): The front matter every planning page carries
+- [Reference page](https://mariatta.ca/starlight-violet/guide/kinds/reference/): The front matter of a page on how something works, a runbook or a guide
+- [Decision](https://mariatta.ca/starlight-violet/guide/kinds/decision/): The contract every decision follows
+- [Handoff](https://mariatta.ca/starlight-violet/guide/kinds/handoff/): The contract every handoff follows
+- [Shortcodes](https://mariatta.ca/starlight-violet/guide/shortcodes/): Directives that render tables and links from the notes' front matter
+
+## Setting up a site
+
+- [Getting started](https://mariatta.ca/starlight-violet/getting-started/): Install Violet in a Starlight site and render a notes folder
+- [Configuration](https://mariatta.ca/starlight-violet/configuration/): Every option of the Violet plugin
+- [Kinds](https://mariatta.ca/starlight-violet/kinds/): The kinds of page Violet knows, what each is for, and how a page declares one
+- [Front matter](https://mariatta.ca/starlight-violet/front-matter/): The fields a page's kind gives it, what the header does with them, and how the build checks them
+- [Extending Violet](https://mariatta.ca/starlight-violet/guide/extending/): Adding a kind of your own, and the other ways a site extends Violet
+
+## Optional
+
+- [Why Violet](https://mariatta.ca/starlight-violet/why-violet/): How Violet came out of planning software with AI agents, and when to use something else
+- [Examples](https://mariatta.ca/starlight-violet/examples/): A small notes folder with a page of every kind, rendered by Violet
+- [Source on GitHub](https://github.com/mariatta/starlight-violet): The plugin, its guide pages under `pages/`, and this site under `docs/`

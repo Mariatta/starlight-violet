@@ -15,6 +15,7 @@ export default defineConfig({
       description: 'A Starlight plugin for architecture notes, plans and decisions that live beside the code.',
       logo: { src: './src/assets/violet.svg', alt: '' },
       favicon: '/favicon.svg',
+      head: [{ tag: 'meta', attrs: { name: 'author', content: 'Mariatta' } }],
       social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/mariatta/starlight-violet' }],
       customCss: ['./src/styles/violet.css'],
       // Sponsors under the table of contents, and in the footer where that is not on
