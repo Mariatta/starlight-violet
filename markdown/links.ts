@@ -42,7 +42,7 @@ const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|#|\/)/i;
 const IS_NUMBER = new RegExp(`^${NUMBER}$`);
 const NUMBER_PARTS = new RegExp(`(${NUMBER})`);
 const LIST = String.raw`${NUMBER}(?:(?:,\s*|\s+and\s+|,\s*and\s+|\s+to\s+)${NUMBER})*`;
-/** "this Stage 2 teams" counts; "Stage 2" after one of these words is not a reference. */
+/** "Stage 2" after one of these words is not a reference: "at this Stage 2 teams help". */
 const NOT_AFTER = String.raw`(?<!\b(?:this|that|these|those|each|every|any|which|what)\s+)`;
 /** A count or a length of time after a number: "the Task 3 times", "Stage 2 days later", "2.5 days". */
 const UNIT = String.raw`(?!\.\d)(?!\s*(?:%|x\b|h\b|times?\b(?!\s+out\b)|days?\b|hours?\b|weeks?\b|months?\b|years?\b|minutes?\b|mins?\b|people\b|points?\b(?!\s+(?:to|at)\b)|pts?\b))`;
