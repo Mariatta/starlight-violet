@@ -12,8 +12,8 @@ describe('questions', () => {
   test('Q3 to Q9 links both ends', () => assert.deepEqual(at('QB'), ['Q3 → /work/handoff/#q3', 'Q9 → /work/handoff/#q9']));
   test('a lowercase q4 links', () => assert.deepEqual(at('QC'), ['q4 → /work/handoff/#q4']));
   test('a lowercase q in an address or a name is not a question', () => assert.deepEqual(at('QF'), []));
-  test('a capital Q is a question before a dash or a dot', () =>
-    assert.deepEqual(at('QG'), ['Q3 → /work/handoff/#q3', 'Q9 → /work/handoff/#q9', 'Q3 → /work/handoff/#q3']));
+  test('a capital Q is a question before a dash', () => assert.deepEqual(at('QG'), ['Q3 → /work/handoff/#q3', 'Q9 → /work/handoff/#q9']));
+  test('a capital Q before a dot and more is a name, not a question', () => assert.deepEqual(at('QH'), []));
   test('a quarter is not a question', () => {
     assert.deepEqual(at('QD'), []);
     assert.deepEqual(at('QE'), []);
@@ -57,6 +57,7 @@ describe('tasks and table rows', () => {
     assert.deepEqual(at('TE'), ['1 → /work/plan/#stage-1']);
     assert.deepEqual(at('TF'), ['1 → /work/plan/#stage-1', '2 → /work/plan/#stage-2']);
   });
+  test('in lower case, only a dotted number links', () => assert.deepEqual(at('TL'), []));
   test('a row numbered beside a footnote links', () => assert.deepEqual(at('TJ'), ['5 → /work/plan/#task-5']));
   test('a task the plan does not declare stays text, quoted and listed example headings included', () => assert.deepEqual(at('TK'), []));
   test('after "each", or before a count or a length of time, stays text', () => {

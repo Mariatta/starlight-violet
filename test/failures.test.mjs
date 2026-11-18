@@ -28,6 +28,9 @@ function astro() {
 function run(command, args, options) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, options);
+    // Decoded as a stream, so a character split across two chunks is read whole.
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
     let output = '';
     child.stdout.on('data', (chunk) => (output += chunk));
     child.stderr.on('data', (chunk) => (output += chunk));

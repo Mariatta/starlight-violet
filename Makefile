@@ -24,6 +24,8 @@ docs-ci:
 # The test site has its own packages, with Violet installed as a copy as in docs/,
 # so a running make docs-dev is left alone; make test reinstalls Violet each time.
 test:
+	@# A checkout that ran an earlier make test may still link docs' packages here; unlink them, so docs keeps its Violet.
+	[ ! -L test/site/node_modules ] || rm test/site/node_modules
 	cd test/site && rm -rf node_modules/starlight-violet && npm install --silent
 	$(MAKE) test-run
 
@@ -32,7 +34,8 @@ test-ci:
 	cd test/site && npm ci
 	$(MAKE) test-run
 
-# What make test and make test-ci run once the packages are in.
+# What make test and make test-ci run once the packages are in. On its own, after
+# editing Violet, it tests the copy from the last install.
 test-run:
 	@test -d test/site/node_modules/starlight-violet || { echo "test/site has no packages: run make test"; exit 1; }
 	cd test/site && npx --no-install astro build

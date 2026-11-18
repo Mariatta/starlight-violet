@@ -4,7 +4,7 @@ title: Prose
 
 ## Questions
 
-QA: Q3 here. QB: Q3 to Q9 here. QC: q4 here. QD: Q3 2027 is a quarter. QE: FY2027 Q4 too, and Q3-2027 or Q9-FY27. QF: ?q3=foo, #q4, q9.json and q3-flag are not questions. QG: Q3-Q9 and Q3.1 are.
+QA: Q3 here. QB: Q3 to Q9 here. QC: q4 here. QD: Q3 2027 is a quarter. QE: FY2027 Q4 too, and Q3-2027 or Q9-FY27. QF: ?q3=foo, #q4, q9.json and q3-flag are not questions. QG: Q3-Q9 are. QH: Q3.1 and Q3.json are not.
 
 ## Pages and sections
 
@@ -12,7 +12,7 @@ PA: SPEC here. PB: SPEC 3.2 here. PC: SPEC §6 and §6.4 here. PL: PLAN.md here.
 
 ## Tasks and rows
 
-TA: Task 3 here. TB: Tasks 1 and 2 here. TC: task 1.2 here. TD: Task 3.2 here. TE: Stage 1 here. TF: stages 1 and 2 here. TG: each Task 3 check. TH: the task 3 times. TI: stage 2 days later. TJ: Task 5 here. TK: Task 8 and Task 9 here.
+TA: Task 3 here. TB: Tasks 1 and 2 here. TC: task 1.2 here. TD: Task 3.2 here. TE: Stage 1 here. TF: Stages 1 and 2 here. TG: each Task 3 check. TH: the task 3 times. TI: stage 2 days later. TJ: Task 5 here. TK: Task 8 and Task 9 here. TL: stages 1 and 2, in lower case, stay text.
 
 ## Decisions
 
