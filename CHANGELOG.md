@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-17)
 
 - The decision kind's contract says what superseding or amending a decision does to it: one superseded whole has its `date` moved to the day it was superseded, with the day it was locked kept in `history`; one superseded in part, or amended, stays `locked`, keeps its `date`, and names the part in `superseded_by` or `amended_by`.
 - A handoff's header separates its decisions with commas ("decision 0001, decision 0003"). Before, two or more ran together as "decision 0001decision 0003".
