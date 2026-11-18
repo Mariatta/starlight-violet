@@ -65,7 +65,7 @@ says, exports never run in the request.
    ./manage.py export retry <id>
    ```
 
-4. Run this until its row reads Ready:
+4. Run this until its status is Ready:
 
    ```sh
    ./manage.py shell -c "from exports.models import Export; print(Export.objects.filter(id=<id>).values('status', 'error'))"
