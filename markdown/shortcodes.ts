@@ -2,20 +2,25 @@
  * Shortcodes: a leaf directive such as `::planning{status=draft}` on a line
  * of its own is replaced, at build time, by Markdown generated from the notes.
  * Each entry in SHORTCODES takes the directive's attributes and returns
- * Markdown.
+ * Markdown, or the nodes themselves when they must carry more than text can.
  */
-import type { MdastPluginEntry } from 'satteri';
+import type { MdastNode, MdastPluginEntry } from 'satteri';
 import { fileURLToPath } from 'node:url';
 import { getKind, progressBar, statusBadge, statusLabel } from '../kinds';
 import { getOptions } from '../options';
 import { idFor, issueRefs, issueUrl, notesDir, notesPages, notesRel, pageUrl, readKind, readPage, sectionDescription, sections, slugify, splitTitle, words, type PageInfo } from '../lib/notes';
 import { planFor, planningFolder, type Plan } from '../lib/plans';
 import { readDecisions, readHandoffs } from '../lib/records';
+import { questionUrl } from '../lib/references';
+import { parse, textOf } from '../lib/source';
+import { FROM_PAGE, IN_ANCHOR, markAnchoredText } from './links';
 
 type Attributes = Record<string, string | null | undefined>;
 
 function cell(value: unknown): string {
-  return String(value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  // A pipe already escaped (a title taken from a heading as written, `A \| B`) stays as it is;
+  // one after an even run of backslashes (`A \\| B`) is not escaped, so it is.
+  return String(value ?? '').replace(/(?<!\\)((?:\\\\)*)\|/g, '$1\\|').replace(/\r?\n/g, ' ');
 }
 
 /** A Markdown table; a column empty in every row is left out. */
@@ -26,6 +31,43 @@ function table(fullHeader: string[], fullRows: string[][]): string {
   const rows = fullRows.map((row) => row.filter((_, i) => keep[i]));
   const line = (cells: string[]) => `| ${cells.map(cell).join(' | ')} |`;
   return [line(header), `|${header.map(() => '---').join('|')}|`, ...rows.map(line)].join('\n');
+}
+
+/** The nodes whose meaning depends on the page that wrote them: what `fromPage` marks. */
+const PLACED = new Set(['text', 'link', 'image', 'textDirective']);
+
+/**
+ * A table of Markdown another page wrote, parsed here as nodes rather than
+ * handed back as text, so it reads as it does on that page: each text,
+ * link, image and `:task[3]` is marked with the page it came from, so
+ * "Q3", "SPEC 3.2" or `[the spec](SPEC.md)` in it link where they do on
+ * that page, not from the folder of the page showing it. In the columns
+ * named in `plain`, raw HTML shows as text, as that page's header shows
+ * those fields (so `<id>` is not lost). In the others, text inside a raw
+ * `<a>` is left alone, one cell at a time, as the header renders each
+ * field on its own.
+ */
+function fromPage(markdown: string, file: string, plain: string[]): MdastNode {
+  const mark = (node: MdastNode, asText: boolean): MdastNode => {
+    const data = { ...(node as { data?: object }).data, [FROM_PAGE]: file };
+    if (node.type === 'html' && asText) return { type: 'text', value: (node as { value: string }).value, data } as MdastNode;
+    const marked = (PLACED.has(node.type) ? { ...node, data } : node) as MdastNode & { children?: MdastNode[] };
+    return (marked.children ? { ...marked, children: marked.children.map((child) => mark(child, asText)) } : marked) as MdastNode;
+  };
+  type Table = MdastNode & { children: (MdastNode & { children: MdastNode[] })[] };
+  const table = parse(markdown, { keep: false, position: false }).children[0] as Table;
+  const header = table.children[0].children.map((cell) => textOf(cell as never));
+  return {
+    ...table,
+    children: table.children.map((row) => ({
+      ...row,
+      children: row.children.map((cell, i) => {
+        const marked = mark(cell, plain.includes(header[i]));
+        markAnchoredText(marked, (node) => (node.data = { ...node.data, [IN_ANCHOR]: true }));
+        return marked;
+      }),
+    })),
+  } as MdastNode;
 }
 
 function issueLinks(...issues: (string | undefined)[]): string {
@@ -65,7 +107,7 @@ function topicLabels(pages: PageInfo[]): (page: PageInfo) => string {
   return (page) => ((folders.get(page.topic)?.size ?? 0) > 1 ? page.folder : page.topicLabel);
 }
 
-export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) => string> = {
+export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) => string | MdastNode> = {
   /**
    * The landing page's cards: one per top-level folder of the notes, in
    * sidebar order, with its name and its one-line description, leading to
@@ -210,13 +252,27 @@ export const SHORTCODES: Record<string, (attributes: Attributes, file?: string) 
     return table(['Handoff', 'Status', 'Date', 'From', 'To', 'Open questions'], rows);
   },
 
-  /** The open questions of one handoff: `::questions{of=finance}`. */
+  /**
+   * The open questions of one handoff: `::questions{of=finance}`. Each id
+   * links to its row on the handoff, and the text reads as the handoff's
+   * header reads it (see `fromPage`).
+   */
   questions({ of }) {
     const handoff = readHandoffs().find((h) => h.id === of || h.id.endsWith(`/${of}`));
     if (!handoff) return `> No handoff with id \`${of ?? ''}\`.`;
     const questions = (handoff.data.open_questions as Record<string, string>[] | undefined) ?? [];
-    const rows = questions.map((q) => [q.id, q.question, q.blocks ?? '', q.answer ?? '*open*']);
-    return table(['', 'Question', 'Blocks', 'Answer'], rows);
+    const rows = questions.map((q) => ['id', q.question, q.blocks ?? '', q.answer || '*open*']);
+    const markdown = table(['', 'Question', 'Blocks', 'Answer'], rows);
+    if (rows.length === 0) return markdown;
+    // The header renders blocks and answers with raw HTML as text, and the question as Markdown.
+    const shown = fromPage(markdown, handoff.file, ['Blocks', 'Answer']) as MdastNode & { children: { children: MdastNode[] }[] };
+    // Each id as the header shows it, in code, linking to its row there: built as a node, so no id needs escaping.
+    for (const [index, q] of questions.entries()) {
+      const id = String(q.id);
+      const link = { type: 'link', url: questionUrl(handoff.url, id), children: [{ type: 'inlineCode', value: id }] };
+      shown.children[index + 1].children[0] = { type: 'tableCell', children: [link] } as MdastNode;
+    }
+    return shown;
   },
 
   /** Every reference page , newest change first: `::references{status=current}`. */
@@ -275,10 +331,18 @@ export function shortcodesPlugin(): MdastPluginEntry {
     const file = fileURL ? fileURLToPath(fileURL) : undefined;
     return {
       name: 'notes-shortcodes',
-      leafDirective(node) {
+      leafDirective(node, ctx) {
         const render = SHORTCODES[node.name];
         if (!render) return;
-        return { raw: `${render(node.attributes ?? {}, file)}\n` };
+        const out = render(node.attributes ?? {}, file);
+        if (typeof out !== 'string') return out;
+        // The links plugin marks text inside a raw <a> only on a page whose own source has
+        // one, so text inside a raw <a> this shortcode writes (in a front matter title shown
+        // in a table cell, say) is marked here.
+        if (!/<a[\s>]/i.test(out)) return { raw: `${out}\n` };
+        const nodes = parse(out, { keep: false, position: false }).children as MdastNode[];
+        markAnchoredText({ type: 'root', children: nodes }, (n) => (n.data = { ...n.data, [IN_ANCHOR]: true }));
+        ctx.replaceNode(node, nodes as never);
       },
     };
   };

@@ -15,7 +15,9 @@ import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
 import { idFor, isSkipped, LANDING, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
-import { headings, isSplit, pageParts, readPlan, type Plan } from './plans';
+import { isSplit, pageParts, readPlan, sectionHeadings, type Plan } from './plans';
+import { notFrontMatter, renderPlain } from '../markdown/plain';
+import { FIELD_HASH } from '../markdown/rows';
 
 /** Violet's guide pages are filed under this folder. */
 export const GUIDE = 'guide';
@@ -181,7 +183,7 @@ export function notesLoader(): Loader {
               } catch (error) {
                 throw new Error(`${shown} is not a valid ${data.kind} page: ${describe(error)}`);
               }
-              const sectionsFound = headings(body).filter((h) => h.depth === 2).map((h) => h.text);
+              const sectionsFound = sectionHeadings(body);
               const problem = sectionProblem(kind, sectionsFound);
               if (problem) throw new Error(`${shown} is a ${data.kind} and ${problem}`);
               const planProblems = role === 'notes' ? (readPlan(file)?.problems ?? []) : [];
@@ -200,8 +202,10 @@ export function notesLoader(): Loader {
             const parsed = await parseData({ id, data, filePath: shown });
             const kind = getKind(parsed.kind);
             if (kind?.render) {
-              const inline = async (text: string) => {
-                const { html } = await renderMarkdown(text, { fileURL });
+              // A field is not the body: its numbered rows must not repeat the body's row ids.
+              const fieldURL = new URL(FIELD_HASH, fileURL);
+              const inline = async (text: string, options?: { html?: boolean }) => {
+                const html = options?.html === false ? await renderPlain(text, fieldURL) : (await renderMarkdown(notFrontMatter(text), { fileURL: fieldURL })).html;
                 return html.replace(/^<p>|<\/p>\s*$/g, '');
               };
               await kind.render(parsed, inline);

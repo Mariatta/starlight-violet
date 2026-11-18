@@ -4,10 +4,11 @@
  * `# PR 2: ...`) so a reference can link straight to it. Shared by the
  * loader's checks, the shortcodes, the inline directives and the auto-links.
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Slugger from 'github-slugger';
-import { idFor, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
+import { idFor, inNotes, isBuilt, notesDir, pageUrl, readKind, readPage, splitTitle } from './notes';
+import { cached, Lru, parse, textOf } from './source';
 
 export interface PlanTask {
   number: number;
@@ -53,6 +54,8 @@ export interface Part {
   body: string;
   /** The section's heading; undefined for the overview. */
   title?: string;
+  /** The section's heading as written, code marks and escapes included: what a PR's title is taken from. */
+  source?: string;
   /** The PR whose section this is. */
   pr?: number;
   /** The anchors of its headings. */
@@ -64,91 +67,163 @@ export function isSplit(data: Record<string, unknown>): boolean {
   return data.split === true;
 }
 
-/** The parts of a page; `body` is without its title heading. */
+const partsMemo = new Lru<string, Part[]>(100);
+
+/**
+ * The parts of a page; `body` is without its title heading. Worked out
+ * once per page and body: the loader, the plan reader, the anchors and the
+ * row links all ask for the parts of the same plans.
+ */
 export function pageParts(id: string, data: Record<string, unknown>, body: string): Part[] {
+  const key = `${id}\0${isSplit(data)}\0${body}`;
+  let parts = partsMemo.get(key);
+  if (!parts) {
+    parts = splitParts(id, data, body);
+    partsMemo.set(key, parts);
+  }
+  return parts;
+}
+
+function splitParts(id: string, data: Record<string, unknown>, body: string): Part[] {
   const url = pageUrl(id);
   if (!isSplit(data)) return [{ id, url, body, anchors: headings(body) }];
   const lines = body.split('\n');
-  const starts: { line: number; text: string }[] = [];
-  let fence: string | undefined;
-  lines.forEach((line, index) => {
-    const marker = FENCE.exec(line)?.[1];
-    if (marker) {
-      if (!fence) fence = marker;
-      else if (marker === fence) fence = undefined;
-      return;
-    }
-    const match = !fence && /^#\s+(.+?)\s*#*\s*$/.exec(line);
-    if (match) starts.push({ line: index, text: match[1] });
-  });
+  // Each part starts at a top-level # heading with text, as the parser reads
+  // the body; its body starts after the heading's last line (a setext
+  // heading's === underline included).
+  const starts = (parse(body).children as { type: string; depth?: number; position?: { start: { line: number }; end: { line: number } } }[])
+    .filter((node) => node.type === 'heading' && node.depth === 1 && node.position)
+    .filter((node) => textOf(node as never, body).trim())
+    // The part's title and address come from the heading as written, as they always have, so they do not move.
+    .map((node) => ({ line: node.position!.start.line - 1, after: node.position!.end.line, source: written(node as never, body) }));
   const slugger = new Slugger();
   const overview = lines.slice(0, starts[0]?.line ?? lines.length).join('\n');
   const parts: Part[] = [{ id, url, body: overview, anchors: headings(overview) }];
-  starts.forEach(({ line, text }, index) => {
-    const partBody = lines.slice(line + 1, starts[index + 1]?.line ?? lines.length).join('\n');
+  starts.forEach(({ after, source }, index) => {
+    const text = plain(source);
+    const partBody = lines.slice(after, starts[index + 1]?.line ?? lines.length).join('\n');
     const pr = PR_HEADING.exec(text);
-    const slug = pr ? `pr-${pr[1]}` : slugger.slug(plain(text));
+    const slug = pr ? `pr-${pr[1]}` : slugger.slug(text);
     const partId = `${id}/${slug}`;
-    parts.push({ id: partId, url: pageUrl(partId), body: partBody, title: plain(text), pr: pr ? Number(pr[1]) : undefined, anchors: headings(partBody) });
+    parts.push({ id: partId, url: pageUrl(partId), body: partBody, title: text, source, pr: pr ? Number(pr[1]) : undefined, anchors: headings(partBody) });
   });
   return parts;
+}
+
+type Placed = { children?: { position?: { start: { offset?: number }; end: { offset?: number } } }[] };
+
+/** A heading's text as written in `body`, between its `#` marks: escapes, entities and Markdown included. */
+function written(node: Placed, body: string): string {
+  const first = node.children?.[0]?.position?.start.offset;
+  const last = node.children?.at(-1)?.position?.end.offset;
+  return first === undefined || last === undefined ? textOf(node as never, body) : body.slice(first, last).trim();
+}
+
+/** A part's title: the heading as written, less its code marks. */
+function plain(text: string): string {
+  return text.replace(/`/g, '').trim();
 }
 
 /** Where an anchor of a page lives: in a split page, the part with that heading. */
 export function anchorUrl(file: string, hash: string): string | undefined {
   if (!existsSync(file)) return;
-  const mtime = statSync(file).mtimeMs;
-  let cached = anchorCache.get(file);
-  if (cached?.mtime !== mtime) {
+  const anchors = cached(file, 'part-anchors', () => {
     const { data, body } = readPage(file);
-    const anchors = new Map<string, string>();
+    const found = new Map<string, string>();
     if (isSplit(data)) {
       for (const part of pageParts(idFor(file, notesDir()), data, splitTitle(body).body)) {
-        for (const { slug } of part.anchors) if (!anchors.has(slug)) anchors.set(slug, `${part.url}#${slug}`);
+        for (const { slug } of part.anchors) if (!found.has(slug)) found.set(slug, `${part.url}#${slug}`);
       }
     }
-    cached = { mtime, anchors };
-    anchorCache.set(file, cached);
-  }
-  return cached.anchors.get(hash);
+    return found;
+  });
+  return anchors.get(hash);
 }
-
-const anchorCache = new Map<string, { mtime: number; anchors: Map<string, string> }>();
 
 const TASK_HEADING = /^task\s+(\d+)\b[:.\s-]*(.*)$/i;
 const PR_HEADING = /^pr\s+(\d+)\b[:.\s-]*(.*)$/i;
-const FENCE = /^\s*(```|~~~)/;
 
 interface Heading {
   depth: number;
+  /** The text as written, with no smart punctuation: what kinds and plans match. */
   text: string;
+  /** The anchor the renderer gives it, made from the text as it renders. */
   slug: string;
+  /** The text as written in the source, escapes and Markdown included: what a task's or PR's title is taken from. */
+  source: string;
+  /** Whether it is one of the page's own headings, not one inside a quote, a list item or a `:::` block. */
+  top: boolean;
 }
 
-/** The body's headings with the anchors the renderer gives them; fenced code is skipped. */
-export function headings(body: string): Heading[] {
-  const slugger = new Slugger();
-  const found: Heading[] = [];
-  let fence: string | undefined;
-  for (const line of body.split('\n')) {
-    const marker = FENCE.exec(line)?.[1];
-    if (marker) {
-      if (!fence) fence = marker;
-      else if (marker === fence) fence = undefined;
-      continue;
-    }
-    if (fence) continue;
-    const match = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
-    if (match) found.push({ depth: match[1].length, text: match[2], slug: slugger.slug(match[2]) });
-  }
+type Block = { type: string; depth?: number; children?: Block[] };
+
+/** A tree's headings in document order, each with whether a quote, list item or `:::` block holds it. */
+function headingNodes(tree: Block): { node: Block; top: boolean }[] {
+  const found: { node: Block; top: boolean }[] = [];
+  const walk = (node: Block, top: boolean) => {
+    if (node.type === 'heading') found.push({ node, top });
+    const inside = top && node.type !== 'blockquote' && node.type !== 'listItem' && node.type !== 'containerDirective';
+    for (const child of node.children ?? []) walk(child, inside);
+  };
+  walk(tree, true);
   return found;
 }
 
-function plain(text: string): string {
-  return text.replace(/`/g, '').trim();
+/**
+ * The body's headings with the anchors the renderer gives them, in document
+ * order, as the site's parser reads the body: `#` and setext headings, at
+ * any depth of nesting. The anchor comes from the text as it renders (smart
+ * punctuation included), the text is as written; neither has raw HTML tags.
+ * A heading with no text gets no anchor.
+ */
+export function headings(body: string): Heading[] {
+  const slugger = new Slugger();
+  // Smart punctuation changes text, never blocks, so the two trees have the same headings in the same order.
+  const asWritten = headingNodes(parse(body, { smart: false }));
+  return headingNodes(parse(body))
+    .map(({ node, top }, index) => ({
+      depth: node.depth!,
+      top,
+      shown: textOf(node as never, body).trim(),
+      text: textOf(asWritten[index].node as never, body).trim(),
+      source: written(node as never, body),
+    }))
+    .filter(({ shown }) => shown)
+    .map(({ depth, top, shown, text, source }) => ({ depth, top, text, source, slug: slugger.slug(shown) }));
+}
+
+/**
+ * The page's own sections: its level-two headings at the top level of the
+ * body, not ones inside a quote, list item or directive, which belong to
+ * that block, as written. What a kind's `sections` rule checks.
+ */
+export function sectionHeadings(body: string): string[] {
+  return (parse(body, { smart: false }).children as Block[])
+    .filter((node) => node.type === 'heading' && node.depth === 2)
+    .map((node) => textOf(node as never, body).trim())
+    // An empty ## is no section, as it has no anchor either.
+    .filter(Boolean);
 }
 
 type Raw = Record<string, unknown>;
+
+/** What a missing heading's message adds when the page has one only inside a block. */
+const NESTED = ' of its own: the one it has is inside a ::: block, a quote or a list, which makes it an example';
+
+/**
+ * A task's or PR's title from its heading, as written: the shortcodes put it
+ * back into Markdown, so an escape such as `\<br\>` must survive, and so
+ * must code marks: without them `` `<details>` `` would become a tag. (A
+ * split page's part titles leave code marks out, as they show as plain
+ * text, but a split PR's title is still taken as written.) Marks around the
+ * number (`**Task 2**: ...`, `*Task 2:* ...`) are left out first. The text
+ * without Markdown is the last resort, for a heading the pattern still does
+ * not match; it may hold raw HTML.
+ */
+function headingTitle(pattern: RegExp, heading: Heading): string {
+  const source = heading.source.replace(/^([*_]{1,3})((?:task|pr)\s+\d+[:.]?)\1/i, '$2');
+  return (pattern.exec(source) ?? pattern.exec(heading.text))![2].trim();
+}
 
 /** The plan in one file: front matter entries joined to their headings. Undefined when it declares none. */
 export function readPlan(file: string): Plan | undefined {
@@ -166,12 +241,23 @@ export function readPlan(file: string): Plan | undefined {
   const prHeadings = new Map<number, Heading>();
   const taskUrls = new Map<number, string>();
   const prUrls = new Map<number, string>();
+  // Numbers with a heading only inside a quote, list item or ::: block, so a missing heading's message can say where it is;
+  // for a PR, the depth of the shallowest, as only a # heading could start a part of a split page.
+  const nestedTasks = new Set<number>();
+  const nestedPrs = new Map<number, number>();
   for (const part of pageParts(id, data, splitTitle(body).body)) {
+    for (const heading of part.anchors.filter(({ top }) => !top)) {
+      const task = TASK_HEADING.exec(heading.text);
+      if (task) nestedTasks.add(Number(task[1]));
+      const pr = PR_HEADING.exec(heading.text);
+      if (pr) nestedPrs.set(Number(pr[1]), Math.min(heading.depth, nestedPrs.get(Number(pr[1])) ?? heading.depth));
+    }
     if (part.pr !== undefined && part.title) {
-      prHeadings.set(part.pr, { depth: 1, text: part.title, slug: '' });
+      prHeadings.set(part.pr, { depth: 1, text: part.title, source: part.source ?? part.title, slug: '', top: true });
       prUrls.set(part.pr, part.url);
     }
-    for (const heading of part.anchors) {
+    // A heading quoted, in a list item or in a `:::` block (an aside's example) is not one of the plan's own.
+    for (const heading of part.anchors.filter(({ top }) => top)) {
       const task = TASK_HEADING.exec(heading.text);
       if (task) {
         taskHeadings.set(Number(task[1]), heading);
@@ -190,10 +276,10 @@ export function readPlan(file: string): Plan | undefined {
   const tasks = rawTasks.map((raw) => {
     const number = Number(raw.number);
     const heading = taskHeadings.get(number);
-    if (!heading) problems.push(`task ${number} has no "Task ${number}" heading`);
+    if (!heading) problems.push(`task ${number} has no "Task ${number}" heading${nestedTasks.has(number) ? NESTED : ''}`);
     return {
       number,
-      title: String(raw.title ?? (heading ? plain(TASK_HEADING.exec(heading.text)![2]) : '')),
+      title: String(raw.title ?? (heading ? headingTitle(TASK_HEADING, heading) : '')),
       status: String(raw.status ?? 'todo'),
       issue: raw.issue as string | undefined,
       pr: prOf.get(number),
@@ -208,12 +294,18 @@ export function readPlan(file: string): Plan | undefined {
   const prs = rawPrs.map((raw) => {
     const number = Number(raw.number);
     const heading = prHeadings.get(number);
-    if (rawPrs.length > 0 && !heading) problems.push(`PR ${number} has no "PR ${number}" heading`);
+    if (rawPrs.length > 0 && !heading) {
+      // A split page's parts start at its own # headings; one inside a quote, a list or a ::: block belongs to that block.
+      const nested = nestedPrs.get(number);
+      // The build joins problems with "; ", so this one's clauses are joined with commas.
+      const part = isSplit(data) && nested === 1 ? ', and on a split page it does not start a part either' : '';
+      problems.push(`PR ${number} has no "PR ${number}" heading${nested !== undefined ? `${NESTED}${part}` : ''}`);
+    }
     const listed = ((raw.tasks as number[] | undefined) ?? []).map(Number);
     for (const n of listed) if (!declared.has(n)) problems.push(`PR ${number} lists task ${n}, which is not in tasks`);
     return {
       number,
-      title: String(raw.title ?? (heading ? plain(PR_HEADING.exec(heading.text)![2]) : '')),
+      title: String(raw.title ?? (heading ? headingTitle(PR_HEADING, heading) : '')),
       status: String(raw.status ?? 'todo'),
       branch: raw.branch as string | undefined,
       ships: raw.ships as string | undefined,
@@ -255,7 +347,7 @@ export function planFor(file: string | undefined, topic?: string | null): Plan |
     }
     return;
   }
-  if (!file || !file.startsWith(notesDir())) return;
+  if (!file || !inNotes(file)) return;
   return readPlan(file) ?? planInFolder(dirname(file));
 }
 
@@ -275,6 +367,8 @@ function planInFolder(folder: string): Plan | undefined {
   if (!existsSync(folder)) return;
   for (const entry of readdirSync(folder).sort()) {
     if (!entry.endsWith('.md')) continue;
+    // A page the site leaves out is no one's plan.
+    if (!isBuilt(join(folder, entry))) continue;
     const plan = readPlan(join(folder, entry));
     if (plan) return plan;
   }

@@ -1,5 +1,6 @@
 /** Front matter fields every kind shares: dates, issues, related pages. */
 import { z } from 'astro/zod';
+import type { Inline } from '../options';
 
 export const DAY = z
   .union([z.string(), z.date()])
@@ -47,7 +48,7 @@ export interface CommonData {
 }
 
 /** Render the shared inline-Markdown fields to HTML in place; a related link becomes `html`. */
-export async function renderCommon(data: CommonData, inline: (text: string) => Promise<string>) {
+export async function renderCommon(data: CommonData, inline: Inline) {
   if (data.note) data.note = await inline(data.note);
   for (const issue of data.issues) if (issue.note) issue.note = await inline(issue.note);
   for (const item of data.related) {

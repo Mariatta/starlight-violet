@@ -4,6 +4,7 @@
  */
 import { z } from 'astro/zod';
 import { commonFields, renderCommon, type CommonData } from './common';
+import type { Inline } from '../options';
 
 export const REFERENCE_STATUSES = ['draft', 'in-progress', 'current', 'unreviewed', 'outdated', 'archived'] as const;
 
@@ -25,6 +26,6 @@ export const referenceSchema = z.object({
 
 export type ReferenceData = z.infer<typeof referenceSchema>;
 
-export async function renderReference(data: ReferenceData, inline: (text: string) => Promise<string>) {
+export async function renderReference(data: ReferenceData, inline: Inline) {
   await renderCommon(data as unknown as CommonData, inline);
 }

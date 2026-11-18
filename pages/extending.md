@@ -44,7 +44,7 @@ export const risk = defineKind({
 | `variants` | no | The badge colour for each `status`: `default`, `note`, `tip`, `caution`, `danger` or `success` |
 | `sections` | no | `{ required: [...] }`: level-two headings the body must have; `{ exact: [...] }`: exactly these, in order |
 | `header` | no | A component for the page's header, as a path from the site's root. Without one, pages get Violet's header (status, dates, note, Issues, Related) |
-| `render` | no | Turns inline-Markdown fields into HTML before the header shows them. `renderCommon` does it for the common fields |
+| `render` | no | Turns inline-Markdown fields into HTML before the header shows them. `renderCommon` does it for the common fields. `inline(text, { html: false })` renders one line of inline Markdown, with raw HTML shown as text and blocks kept as written, for fields that used to be plain text |
 | `dateField` | no | The front matter field holding the page's date, which `::pages` sorts by and shows. Default `updated` |
 
 A kind's name is lower case letters, digits and dashes, and must not be one

@@ -4,6 +4,7 @@
  */
 import { z } from 'astro/zod';
 import { commonFields, ISSUE, renderCommon, type CommonData } from './common';
+import type { Inline } from '../options';
 
 export const PLANNING_TYPES = ['context', 'brainstorm', 'spec', 'plan'] as const;
 export const PLANNING_STATUSES = ['draft', 'in-review', 'approved', 'in-progress', 'done', 'superseded'] as const;
@@ -76,7 +77,7 @@ export const planningSchema = z.object({
 export type PlanningData = z.infer<typeof planningSchema>;
 
 /** Render the inline-Markdown fields to HTML in place. */
-export async function renderPlanning(data: PlanningData, inline: (text: string) => Promise<string>) {
+export async function renderPlanning(data: PlanningData, inline: Inline) {
   await renderCommon(data as unknown as CommonData, inline);
-  data.stack = await Promise.all(data.stack.map(inline));
+  data.stack = await Promise.all(data.stack.map((text) => inline(text)));
 }
