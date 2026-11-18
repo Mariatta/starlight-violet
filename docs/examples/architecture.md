@@ -65,13 +65,13 @@ says, exports never run in the request.
    ./manage.py export retry <id>
    ```
 
-4. Watch its row reach Ready:
+4. Run this until its row reads Ready:
 
    ```sh
    ./manage.py shell -c "from exports.models import Export; print(Export.objects.filter(id=<id>).values('status', 'error'))"
    ```
 
-   or the job itself, with `celery -A foodieclub inspect active`.
+   Or watch the job itself with `celery -A foodieclub inspect active`.
 :::
 
 ## Pages

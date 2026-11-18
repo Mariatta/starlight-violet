@@ -87,7 +87,8 @@ The form from the [mockup](brainstorm.md#where-we-landed), behind the
 organizer permission. Builds on Task 1.
 
 Files: `exports/views.py`, `exports/templates/exports/screen.html`,
-`exports/urls.py`, and the `export_screen` flag, off, in `foodieclub/settings.py`.
+`exports/urls.py`, and the `export_screen` flag, off (`EXPORT_SCREEN = False`), in
+`foodieclub/settings.py`.
 Test: `exports/tests/test_screen.py`, that a member without
 the permission gets a 403 and that the form creates a Queued export.
 
