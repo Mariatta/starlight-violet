@@ -5,3 +5,5 @@ dist/
 *.tgz
 .env
 .env.*
+# the test site's caches
+test/site/.astro-cache/

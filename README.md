@@ -121,9 +121,23 @@ override so kind headers still show.
 ## Working on Violet
 
 The documentation site in `docs/` uses Violet from this checkout, and
-its `docs/examples/` folder holds a page of every kind, so building it is
-Violet's test. `make docs-build` installs this checkout into it and
-builds it; `make docs-dev` serves it at http://localhost:8009/starlight-violet/.
+its `docs/examples/` folder holds a page of every kind, so building it
+checks that every kind still builds. `make docs-build` installs this
+checkout into it and builds it; `make docs-dev` serves it at
+http://localhost:8009/starlight-violet/.
+
+`make test` runs Violet's tests. It builds a small site, `test/site/`,
+from the notes in `test/notes/` (with its own packages, and Violet from
+this checkout installed as a copy, as in `docs/`), then
+checks the pages it wrote with Node's test runner (`test/*.test.mjs`):
+which references link and where to, the handoff header, table row
+anchors, split plans, that every link inside the site reaches a page and
+an anchor it has, and that notes the build must refuse are refused with
+a message naming the page. A new case is usually a sentence in
+`test/notes/work/prose.md`, labelled like the others, and a line in
+`test/links.test.mjs`. CI runs the tests on every pull request. `make
+test` reinstalls Violet into `test/site/` each time, so it always tests
+this checkout, and leaves a running `make docs-dev` alone.
 
 The docs site, and any site developing against a local checkout, installs Violet
 as a copy rather than a symlink (`install-links=true` in its

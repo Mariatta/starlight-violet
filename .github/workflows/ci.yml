@@ -18,5 +18,7 @@ jobs:
           node-version: 22
       - name: Build and type-check the docs site against this checkout
         run: make docs-ci
+      - name: Run the tests
+        run: make test-ci
       - name: Check what the package would publish
         run: npm pack --dry-run
