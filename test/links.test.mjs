@@ -57,7 +57,7 @@ describe('tasks and table rows', () => {
     assert.deepEqual(at('TE'), ['1 → /work/plan/#stage-1']);
     assert.deepEqual(at('TF'), ['1 → /work/plan/#stage-1', '2 → /work/plan/#stage-2']);
   });
-  test('in lower case, only a dotted number links', () => assert.deepEqual(at('TL'), []));
+  test('in lower case, an undotted stage list stays text', () => assert.deepEqual(at('TL'), []));
   test('a row numbered beside a footnote links', () => assert.deepEqual(at('TJ'), ['5 → /work/plan/#task-5']));
   test('a task the plan does not declare stays text, quoted and listed example headings included', () => assert.deepEqual(at('TK'), []));
   test('after "each", or before a count or a length of time, stays text', () => {

@@ -12,7 +12,7 @@ PA: SPEC here. PB: SPEC 3.2 here. PC: SPEC §6 and §6.4 here. PL: PLAN.md here.
 
 ## Tasks and rows
 
-TA: Task 3 here. TB: Tasks 1 and 2 here. TC: task 1.2 here. TD: Task 3.2 here. TE: Stage 1 here. TF: Stages 1 and 2 here. TG: each Task 3 check. TH: the task 3 times. TI: stage 2 days later. TJ: Task 5 here. TK: Task 8 and Task 9 here. TL: stages 1 and 2, in lower case, stay text.
+TA: Task 3 here. TB: Tasks 1 and 2 here. TC: task 1.2 here. TD: Task 3.2 here. TE: Stage 1 here. TF: Stages 1 and 2 here. TG: each Task 3 check. TH: the Task 3 times. TI: Stage 2 days later. TJ: Task 5 here. TK: Task 8 and Task 9 here. TL: stages 1 and 2, in lower case, stay text.
 
 ## Decisions
 

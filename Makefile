@@ -1,7 +1,7 @@
 # Build and serve Violet's documentation site against this checkout of Violet.
 export ASTRO_TELEMETRY_DISABLED = 1
 
-.PHONY: docs-install docs-build docs-dev docs-ci test test-ci test-run
+.PHONY: docs-install docs-build docs-dev docs-ci test test-ci test-run test-unlink
 
 # The site installs Violet as a copy (docs/.npmrc install-links), as npm would; reinstall after editing Violet.
 docs-install:
@@ -23,16 +23,19 @@ docs-ci:
 # with Violet from this checkout, then check the pages it wrote (test/*.test.mjs).
 # The test site has its own packages, with Violet installed as a copy as in docs/,
 # so a running make docs-dev is left alone; make test reinstalls Violet each time.
-test:
-	@# A checkout that ran an earlier make test may still link docs' packages here; unlink them, so docs keeps its Violet.
-	[ ! -L test/site/node_modules ] || rm test/site/node_modules
+test: test-unlink
 	cd test/site && rm -rf node_modules/starlight-violet && npm install --silent
 	$(MAKE) test-run
 
 # CI: install exactly what the test site's lockfile says.
-test-ci:
+test-ci: test-unlink
 	cd test/site && npm ci
 	$(MAKE) test-run
+
+# A checkout that ran an earlier version of make test may still link docs' packages
+# into test/site; unlink them first, so installing there never empties docs/node_modules.
+test-unlink:
+	[ ! -L test/site/node_modules ] || rm test/site/node_modules
 
 # What make test and make test-ci run once the packages are in. On its own, after
 # editing Violet, it tests the copy from the last install.
