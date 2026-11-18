@@ -38,8 +38,9 @@ test-unlink:
 	[ ! -L test/site/node_modules ] || rm test/site/node_modules
 
 # What make test and make test-ci run once the packages are in. On its own, after
-# editing Violet, it tests the copy from the last install.
-test-run:
+# editing Violet, it tests the copy from the last install; a leftover link to docs'
+# packages is removed first, so it never tests docs' copy instead.
+test-run: test-unlink
 	@test -d test/site/node_modules/starlight-violet || { echo "test/site has no packages: run make test"; exit 1; }
 	cd test/site && npx --no-install astro build
 	cd test/site && npx --no-install tsc --noEmit -p .

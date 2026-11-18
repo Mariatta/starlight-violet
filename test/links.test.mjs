@@ -34,7 +34,11 @@ describe('pages and sections', () => {
   test('a path, a longer name, README and a skipped page stay text', () => {
     for (const label of ['PG', 'PH', 'PI', 'PJ']) assert.deepEqual(at(label), [], label);
   });
-  test('a length of time is not a section', () => assert.deepEqual(at('PK'), ['SPEC → /work/spec/']));
+  test('a length of time is not a section', () => {
+    assert.deepEqual(at('PK'), ['SPEC → /work/spec/']);
+    // SPEC has a section 3.2, so only the count rule keeps "3.2 days" from linking to it.
+    assert.deepEqual(at('PM'), ['SPEC → /work/spec/', 'SPEC → /work/spec/']);
+  });
   test('a page naming itself is not linked, though its sections are', () =>
     assert.deepEqual(at('SF', 'work/spec'), ['SPEC 3.2 → /work/spec/#32-exports']));
   test('on the page itself, a section after one it lacks still links', () => assert.deepEqual(at('SG', 'work/spec'), ['§3.2 → /work/spec/#32-exports']));

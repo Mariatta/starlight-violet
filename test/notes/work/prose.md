@@ -8,7 +8,7 @@ QA: Q3 here. QB: Q3 to Q9 here. QC: q4 here. QD: Q3 2027 is a quarter. QE: FY202
 
 ## Pages and sections
 
-PA: SPEC here. PB: SPEC 3.2 here. PC: SPEC §6 and §6.4 here. PL: PLAN.md here. PD: SPEC section 6 here. PE: SPEC principle 2 here. PF: §2 of SPEC. PG: finance/PLAN.md is a path. PH: SPEC-v2 is another name. PI: README is not a page. PJ: DRAFT is skipped. PK: SPEC 2.5 days.
+PA: SPEC here. PB: SPEC 3.2 here. PC: SPEC §6 and §6.4 here. PL: PLAN.md here. PD: SPEC section 6 here. PE: SPEC principle 2 here. PF: §2 of SPEC. PG: finance/PLAN.md is a path. PH: SPEC-v2 is another name. PI: README is not a page. PJ: DRAFT is skipped. PK: SPEC 2.5 days. PM: SPEC 3.2 days, though SPEC has a 3.2.
 
 ## Tasks and rows
 
