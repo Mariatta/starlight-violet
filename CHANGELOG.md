@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A handoff's header separates its decisions with commas ("decision 0001, decision 0003"). Before, two or more ran together as "decision 0001decision 0003".
 - A page whose body starts with a horizontal rule (`---` right under its front matter or its `# Title`) keeps everything up to the next rule. Before, the rendered page read that stretch as front matter and dropped it, or failed the build when it was not valid YAML.
 
 ## 0.2.2 (2026-11-13)
