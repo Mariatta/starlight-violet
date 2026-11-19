@@ -4,7 +4,7 @@ description: Install Violet in a Starlight site and render a notes folder
 ---
 
 Violet needs Astro 7 with its default Sätteri Markdown processor and
-Starlight 0.42 or later. The site usually lives in its own folder in the
+Starlight 0.43 or later. The site usually lives in its own folder in the
 repo, such as `docs-site/`, next to the notes in `docs/`.
 
 :::steps

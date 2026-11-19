@@ -90,7 +90,7 @@ The site's own pages in `src/content/docs/` (a home page, a writing guide)
 are read alongside the notes.
 
 It needs Astro 7 with its default Sätteri Markdown processor and Starlight
-0.42 or later.
+0.43 or later.
 
 ## Options
 
