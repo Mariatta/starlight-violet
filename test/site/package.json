@@ -5,7 +5,7 @@
   "description": "The site Violet's tests build, with Violet from this checkout installed as a copy (.npmrc install-links), as the docs site has it. make test reinstalls it, so the tests always read this checkout.",
   "dependencies": {
     "@astrojs/markdown-satteri": "^0.4.6",
-    "@astrojs/starlight": "^0.42.7",
+    "@astrojs/starlight": "^0.43.1",
     "astro": "^7.4.1",
     "starlight-violet": "file:../.."
   },

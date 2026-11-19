@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Violet needs Starlight 0.43 or later. Starlight 0.43 no longer forces Astro's `"where"` style scoping, so a site's own scoped styles may apply with higher specificity than before; see [Starlight's changelog](https://github.com/withastro/starlight/blob/main/packages/starlight/CHANGELOG.md#0430). Violet's own components have no scoped styles.
+
 ## 0.3.0 (2026-11-17)
 
 - The decision kind's contract says what superseding or amending a decision does to it: one superseded whole has its `date` moved to the day it was superseded, with the day it was locked kept in `history`; one superseded in part, or amended, stays `locked`, keeps its `date`, and names the part in `superseded_by` or `amended_by`.
