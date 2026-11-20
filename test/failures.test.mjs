@@ -104,6 +104,11 @@ describe('syncs that warn', { concurrency: true }, () => {
     assert.equal(status, 0, output);
     assert.ok(output.includes(`${skipping('../notes/work/index.mdx')} /violet-tests/work/ shows the work section page; make it the folder's page by renaming it to README.md, without MDX imports or components, or remove it.`), output);
   });
+  test('an MDX folder page in a folder with no page', async () => {
+    const { status, output } = await build('notes/work/sub/index.mdx', '---\ntitle: Sub\n---\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/sub/index.mdx')} /violet-tests/work/sub/ has no page; make it the folder's page by renaming it to README.md, without MDX imports or components, or remove it.`), output);
+  });
   test('an MDX folder page beside the folder\'s README.md', async () => {
     const { status, output } = await build('notes/work/index.mdx', '---\ntitle: Work\n---\n', { also: { 'notes/work/README.md': '# Work\n' }, step: 'sync' });
     assert.equal(status, 0, output);
