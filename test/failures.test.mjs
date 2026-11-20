@@ -170,10 +170,31 @@ describe('syncs that warn', { concurrency: true }, () => {
     assert.doesNotMatch(output, /sheet\.mdoc/);
   });
   test('an MDX page beside a page that fails the build', async () => {
-    const { status, output } = await build('notes/work/diagram.mdx', '---\ntitle: Diagram\n---\n', { also: { 'notes/work/unknown-task.md': '---\ntitle: Unknown task\n---\n\nSee :task[99].\n' }, step: 'sync' });
+    const { status, output } = await build('notes/work/diagram.mdx', '---\ntitle: Diagram\n---\n', {
+      also: {
+        'notes/work/unknown-task.md': '---\ntitle: Unknown task\n---\n\nSee :task[99].\n',
+        'notes/work/prose.mdx': '---\ntitle: Prose\n---\n',
+        'notes/work/index.mdx': '---\ntitle: Work\n---\n',
+      },
+      step: 'sync',
+    });
     assert.notEqual(status, 0);
     assert.match(output, /unknown-task\.md: :task\[99\] matches no task/);
-    assert.ok(output.includes(skipping('../notes/work/diagram.mdx')), output);
+    // A page of its own keeps its advice; an index page's needs the addresses, which the failed build never knew.
+    assert.ok(output.includes(`${skipping('../notes/work/diagram.mdx')} Rename it to .md, without MDX imports or components, or remove it.`), output);
+    assert.ok(output.includes(`${skipping('../notes/work/prose.mdx')} Renaming it to .md would clash with ../notes/work/prose.md: give it another name ending in .md, without MDX imports or components, or remove it.`), output);
+    assert.ok(output.includes(`${skipping('../notes/work/index.mdx')}\n`), output);
+  });
+  test('an MDX page beside a Markdown page of the same name', async () => {
+    const { status, output } = await build('notes/work/prose.mdx', '---\ntitle: Prose\n---\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/prose.mdx')} Renaming it to .md would clash with ../notes/work/prose.md, at /violet-tests/work/prose/: give it another name ending in .md, without MDX imports or components, or remove it.`), output);
+  });
+  test("a Markdown partial in the site's own pages", async () => {
+    // Read as a page, its unknown task would fail the build.
+    const { status, output } = await build('site/src/content/docs/_shared.md', '---\ntitle: Shared\n---\n\nSee :task[99].\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.doesNotMatch(output, /_shared\.md/);
   });
   test('a page ending in .markdown', async () => {
     const { status, output } = await build('notes/work/old.markdown', '# Old\n', { step: 'sync' });

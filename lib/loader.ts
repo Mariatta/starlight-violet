@@ -8,6 +8,7 @@
  */
 import type { Loader } from 'astro/loaders';
 import { basename, dirname, extname, join, relative } from 'node:path';
+import { existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ZodError } from 'astro/zod';
 import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../kinds';
@@ -98,11 +99,15 @@ interface Source {
   role: 'notes' | 'guide' | 'site';
 }
 
-/** A page in a format Violet does not read, with the address it is for when it is an index or README page. */
+/** A page in a format Violet does not read, and the address it is for. */
 interface Unread {
   shown: string;
   extension: string;
-  id?: string;
+  /** An index or README page is its folder's page (or the home page); any other is a page of its own. */
+  role: 'index' | 'readme' | 'page';
+  id: string;
+  /** The `.md` file renaming it would make, and whether there is one already. */
+  twin: { shown: string; exists: boolean };
 }
 
 /** What every warning about a page Violet does not read starts with; on its own when the build stopped before the rest was known. */
@@ -110,20 +115,40 @@ function skipping(shown: string): string {
   return `Skipping ${shown}: Violet reads Markdown pages ending in .md only.`;
 }
 
+/** How to rename a page Violet does not read, beyond the extension. */
+function without(extension: string): string {
+  return extension === '.mdx' ? ', without MDX imports or components' : extension === '.mdoc' ? ', without Markdoc tags' : '';
+}
+
+/** The advice for a page of its own: rename it, unless a `.md` page of that name would clash. */
+function pageAdvice({ shown, extension }: Unread, clash: string | undefined): string {
+  if (clash) return `${skipping(shown)} Renaming it to .md would clash with ${clash}: give it another name ending in .md${without(extension)}, or remove it.`;
+  return `${skipping(shown)} Rename it to .md${without(extension)}, or remove it.`;
+}
+
+/**
+ * The warning when the build stopped before the addresses were known: a page
+ * of its own still gets its advice, checked against the files there, and an
+ * index or README page, whose advice depends on the other pages, gets none.
+ */
+function unreadFallback(page: Unread): string {
+  return page.role === 'page' ? pageAdvice(page, page.twin.exists ? page.twin.shown : undefined) : skipping(page.shown);
+}
+
 /**
  * The warning for a page Violet does not read, saying what to do with it:
  * `taken` maps each address to the page that has it, and `sectionPages` are
  * those a folder's README.md would replace.
  */
-function unreadWarning({ shown, extension, id }: Unread, taken: Map<string, string>, sectionPages: Set<string>): string {
-  const without = extension === '.mdx' ? ', without MDX imports or components' : extension === '.mdoc' ? ', without Markdoc tags' : '';
-  if (!id) return `${skipping(shown)} Rename it to .md${without}, or remove it.`;
+function unreadWarning(page: Unread, taken: Map<string, string>, sectionPages: Set<string>): string {
+  const { shown, extension, role, id } = page;
   const at = taken.get(id);
+  if (role === 'page') return pageAdvice(page, at && !sectionPages.has(id) ? `${at}, at ${pageUrl(id)}` : undefined);
   // A page the site has there already, other than a section page a README.md would replace.
   if (at && !sectionPages.has(id)) return `${skipping(shown)} ${pageUrl(id)} shows ${at} instead; remove it.`;
-  if (id === 'index') return `${skipping(shown)} The site has no home page: rename it to index.md${without}, or put an index.md at the top of the notes.`;
+  if (id === 'index') return `${skipping(shown)} The site has no home page: rename it to index.md${without(extension)}, or put an index.md at the top of the notes.`;
   // A folder's own page is its README.md: an index.md in a folder is a page of its own, at /folder/index/.
-  return `${skipping(shown)} ${pageUrl(id)} ${at ? `shows ${at}` : 'has no page'}; make it the folder's page by renaming it to README.md${without}, or remove it.`;
+  return `${skipping(shown)} ${pageUrl(id)} ${at ? `shows ${at}` : 'has no page'}; make it the folder's page by renaming it to README.md${without(extension)}, or remove it.`;
 }
 
 export function notesLoader(): Loader {
@@ -163,7 +188,7 @@ export function notesLoader(): Loader {
           if (role === 'guide') continue;
           for (const file of listUnread(dir, markdoc)) {
             if (role === 'notes' && isSkipped(notesRel(file))) continue;
-            // Starlight reads no page whose name starts with `_` either: it is a partial.
+            // Nor a partial, whose name starts with `_`, as in collect.
             if (role === 'site' && basename(file).startsWith('_')) continue;
             const rel = relative(dir, file);
             const extension = extname(rel);
@@ -171,8 +196,15 @@ export function notesLoader(): Loader {
             const stem = basename(rel, extension);
             // `Index.mdx` is an index page just as `index.mdx` is. A README is
             // one only as `README`, as idFor has it; `readme.md` is a page of its own.
-            const id = stem.toLowerCase() === 'index' ? (folder === '.' ? 'index' : slugify(folder)) : stem === 'README' ? idFor(join(dir, folder, 'README.md'), dir) : undefined;
-            unread.push({ shown: relative(root, file), extension: extension.toLowerCase(), id });
+            const twin = join(dir, folder, `${stem}.md`);
+            const index = stem.toLowerCase() === 'index';
+            unread.push({
+              shown: relative(root, file),
+              extension: extension.toLowerCase(),
+              role: index ? 'index' : stem === 'README' ? 'readme' : 'page',
+              id: index ? (folder === '.' ? 'index' : slugify(folder)) : idFor(twin, dir),
+              twin: { shown: relative(root, twin), exists: existsSync(twin) },
+            });
           }
         }
         return unread;
@@ -190,6 +222,8 @@ export function notesLoader(): Loader {
             const rel = role === 'notes' ? sitePath(file, dir) : relative(dir, file);
             if (role === 'notes' && isSkipped(notesRel(file))) continue;
             if (role === 'guide' && !guideWanted(rel, options.kinds)) continue;
+            // Starlight reads no page whose name starts with `_`: it is a partial.
+            if (role === 'site' && basename(file).startsWith('_')) continue;
             const page = readPage(file);
             const shown = relative(root, file);
             if (page.yamlError) {
@@ -397,8 +431,8 @@ export function notesLoader(): Loader {
           if (unread) {
             warned = new Map(unread.map((page) => {
               const last = warned.get(page.shown);
-              if (!last) logger.warn(skipping(page.shown));
-              return [page.shown, last ?? skipping(page.shown)];
+              if (!last) logger.warn(unreadFallback(page));
+              return [page.shown, last ?? unreadFallback(page)];
             }));
           }
           throw error;
