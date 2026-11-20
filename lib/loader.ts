@@ -168,9 +168,10 @@ export function notesLoader(): Loader {
             const rel = relative(dir, file);
             const extension = extname(rel);
             const folder = dirname(rel);
-            const stem = basename(rel, extension);
+            // `Index.mdx` and `readme.mdx` are index and README pages too, whose renaming would clash as theirs does.
+            const stem = basename(rel, extension).toLowerCase();
             // A README's address is the one it would get as README.md.
-            const id = stem === 'index' ? (folder === '.' ? 'index' : slugify(folder)) : stem === 'README' ? idFor(join(dir, folder, 'README.md'), dir) : undefined;
+            const id = stem === 'index' ? (folder === '.' ? 'index' : slugify(folder)) : stem === 'readme' ? idFor(join(dir, folder, 'README.md'), dir) : undefined;
             unread.push({ shown: relative(root, file), extension: extension.toLowerCase(), id });
           }
         }
@@ -380,23 +381,34 @@ export function notesLoader(): Loader {
       let warned = new Map<string, string>();
       /** Replace the store only once every page parsed, so a bad edit in dev keeps the last good pages. */
       const sync = async () => {
-        const unread = findUnread();
+        // Not a page's fault when it fails (a folder removed mid-scan in dev): say so, and read the pages anyway.
+        let unread: Unread[] | undefined;
+        try {
+          unread = findUnread();
+        } catch (error) {
+          logger.warn(`Could not look for pages Violet does not read, so their warnings may be out of date: ${(error as Error).message}`);
+        }
         let collected: Awaited<ReturnType<typeof collect>>;
         try {
           collected = await collect();
         } catch (error) {
           // The build stops here, before the addresses are known: name the pages it skipped anyway.
-          for (const page of unread) {
-            if (warned.has(page.shown)) continue;
-            logger.warn(skipping(page.shown));
-            warned.set(page.shown, skipping(page.shown));
+          // The files gone since drop out, so one removed and added back is named again.
+          if (unread) {
+            warned = new Map(unread.map((page) => {
+              const last = warned.get(page.shown);
+              if (!last) logger.warn(skipping(page.shown));
+              return [page.shown, last ?? skipping(page.shown)];
+            }));
           }
           throw error;
         }
         const { entries, taken, sectionPages } = collected;
-        const warnings = new Map(unread.map((page) => [page.shown, unreadWarning(page, taken, sectionPages)]));
-        for (const [shown, warning] of warnings) if (warned.get(shown) !== warning) logger.warn(warning);
-        warned = warnings;
+        if (unread) {
+          const warnings = new Map(unread.map((page) => [page.shown, unreadWarning(page, taken, sectionPages)]));
+          for (const [shown, warning] of warnings) if (warned.get(shown) !== warning) logger.warn(warning);
+          warned = warnings;
+        }
         store.clear();
         for (const entry of entries) store.set(entry);
         logger.info(`${entries.length} pages`);
