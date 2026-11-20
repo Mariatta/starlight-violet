@@ -70,14 +70,18 @@ repo, such as `docs-site/`, next to the notes in `docs/`.
    ```markdown
    ---
    title: Project notes
+   template: splash
+   hero:
+     tagline: Design notes, runbooks and plans for the project.
    ---
 
    ::sections
    ```
 
-   `::sections` gives each top-level folder of the notes a card.
+   The tagline is yours to change. `::sections` gives each top-level folder
+   of the notes a card, so it fills in once the notes have folders.
 
-6. Give a note a kind. In `docs/deploy.md`:
+6. Give a note a kind, in a folder of its own. In `docs/runbooks/deploy.md`:
 
    ```markdown
    ---
@@ -98,7 +102,8 @@ repo, such as `docs-site/`, next to the notes in `docs/`.
    ```
 
    Every Markdown file in `docs/` is a page, folders become sidebar groups,
-   and `deploy.md` shows its status and date in a header.
+   the home page has a card for `runbooks`, and `deploy.md` shows its status
+   and date in a header.
 :::
 
 ## Next
