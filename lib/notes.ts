@@ -42,27 +42,33 @@ export function isSkipped(rel: string): boolean {
   return getOptions().skip.some((pattern) => pattern.test(rel));
 }
 
-/** Every file under `dir` whose name ends in `extension`, skipping dotfiles and build folders. */
-function listEndingIn(dir: string, extension: string): string[] {
+/** Every file under `dir` whose name ends in one of `extensions`, skipping dotfiles and build folders. */
+function listEndingIn(dir: string, extensions: readonly string[]): string[] {
   if (!existsSync(dir)) return [];
   const files: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
     const path = join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...listEndingIn(path, extension));
-    else if (entry.name.endsWith(extension)) files.push(path);
+    if (entry.isDirectory()) files.push(...listEndingIn(path, extensions));
+    else if (extensions.some((extension) => entry.name.endsWith(extension))) files.push(path);
   }
   return files.sort();
 }
 
 /** Every Markdown file under `dir`, skipping dotfiles and build folders. */
 export function listMarkdown(dir: string): string[] {
-  return listEndingIn(dir, '.md');
+  return listEndingIn(dir, ['.md']);
 }
 
-/** Every MDX file under `dir`. Violet does not read MDX, so the loader names these rather than dropping them unseen. */
-export function listMdx(dir: string): string[] {
-  return listEndingIn(dir, '.mdx');
+/**
+ * The page formats Starlight reads and Violet does not: Markdown's other
+ * extensions, MDX, and Markdoc when the site has it.
+ */
+export const UNREAD_EXTENSIONS = ['.markdown', '.mdown', '.mkdn', '.mkd', '.mdwn', '.mdx', '.mdoc'] as const;
+
+/** Every page under `dir` in a format Violet does not read, so the loader names them rather than dropping them unseen. */
+export function listUnread(dir: string): string[] {
+  return listEndingIn(dir, UNREAD_EXTENSIONS);
 }
 
 /** Whether the site builds a page from this notes file: it is in the notes, not skipped, and not the landing page. */

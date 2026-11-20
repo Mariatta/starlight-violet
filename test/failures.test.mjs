@@ -82,17 +82,24 @@ describe('builds that fail', { concurrency: true }, () => {
 });
 
 describe('syncs that warn', { concurrency: true }, () => {
+  /** The start of every warning about a page Violet does not read. */
+  const skipping = (shown) => `Skipping ${shown}: Violet reads Markdown pages ending in .md only.`;
   test("an MDX home page in the site's own pages", async () => {
     const { status, output } = await build('site/src/content/docs/index.mdx', "---\ntitle: Welcome\n---\n\nimport { Card } from '@astrojs/starlight/components';\n", { step: 'sync' });
     assert.equal(status, 0, output);
-    assert.match(output, /Skipping src\/content\/docs\/index\.mdx: Violet reads Markdown \(\.md\) pages, not MDX\./);
-    // The test site's notes have an index.md, so it still has a home page.
+    // The test site's notes have an index.md, so the home page is that one.
+    assert.ok(output.includes(`${skipping('src/content/docs/index.mdx')} /violet-tests/ shows ../notes/index.md instead; remove it.`), output);
     assert.doesNotMatch(output, /no home page/);
   });
   test('an MDX home page and no other', async () => {
     const { status, output } = await build('notes/index.mdx', '---\ntitle: Welcome\n---\n', { without: 'notes/index.md', step: 'sync' });
     assert.equal(status, 0, output);
-    assert.match(output, /The site has no home page: \.\.\/notes\/index\.mdx is MDX\. Rename it to index\.md/);
+    assert.ok(output.includes(`${skipping('../notes/index.mdx')} The site has no home page: rename it to index.md, without MDX imports or components, or put an index.md at the top of the notes.`), output);
+  });
+  test("an MDX folder page, whose address Violet's section page takes", async () => {
+    const { status, output } = await build('notes/work/index.mdx', '---\ntitle: Work\n---\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/index.mdx')} /violet-tests/work/ shows the work section page instead; a folder's own page is its README.md, without MDX imports or components.`), output);
   });
   test('an MDX page the skip option leaves out', async () => {
     const { status, output } = await build('notes/work/sketch.draft.mdx', '---\ntitle: Sketch\n---\n', { step: 'sync' });
@@ -102,6 +109,11 @@ describe('syncs that warn', { concurrency: true }, () => {
   test('an MDX page in the notes', async () => {
     const { status, output } = await build('notes/work/diagram.mdx', '---\ntitle: Diagram\n---\n', { step: 'sync' });
     assert.equal(status, 0, output);
-    assert.match(output, /Skipping \.\.\/notes\/work\/diagram\.mdx: Violet reads Markdown \(\.md\) pages, not MDX\. Rename it to \.md, without MDX imports or components, or remove it\./);
+    assert.ok(output.includes(`${skipping('../notes/work/diagram.mdx')} Rename it to .md, without MDX imports or components, or remove it.`), output);
+  });
+  test('a page ending in .markdown', async () => {
+    const { status, output } = await build('notes/work/old.markdown', '# Old\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/old.markdown')} Rename it to .md, or remove it.`), output);
   });
 });

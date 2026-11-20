@@ -7,14 +7,14 @@
  * site generates (the `extraPages` option) join them.
  */
 import type { Loader } from 'astro/loaders';
-import { dirname, join, relative } from 'node:path';
+import { basename, dirname, extname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ZodError } from 'astro/zod';
 import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../kinds';
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
-import { idFor, isSkipped, LANDING, listMarkdown, listMdx, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
+import { idFor, isSkipped, LANDING, listMarkdown, listUnread, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, UNREAD_EXTENSIONS, words } from './notes';
 import { isSplit, pageParts, readPlan, sectionHeadings, type Plan } from './plans';
 import { notFrontMatter, renderPlain } from '../markdown/plain';
 import { FIELD_HASH } from '../markdown/rows';
@@ -121,19 +121,26 @@ export function notesLoader(): Loader {
         return { ...rendered, html: addHeadingLinks(rendered.html) };
       };
 
-      /** Every page, parsed, checked and rendered; throws on a bad one. */
+      /** Every page, parsed, checked and rendered, and the warnings to give; throws on a bad page. */
       const collect = async () => {
         const entries: any[] = [];
         const placed: Placed[] = [];
         const taken = new Map<string, string>();
-        /** An `index.mdx` skipped above: Starlight's template ships its home page as one. */
-        let mdxHome: string | undefined;
+        /**
+         * Pages in a format Violet does not read, each with the address an
+         * index page among them would have had: Starlight's template ships its
+         * home page as an `index.mdx`.
+         */
+        const unread: { shown: string; extension: string; id?: string }[] = [];
         for (const { dir, role } of sources) {
           if (role !== 'guide') {
-            for (const file of listMdx(dir)) {
+            for (const file of listUnread(dir)) {
               if (role === 'notes' && isSkipped(notesRel(file))) continue;
-              logger.warn(`Skipping ${relative(root, file)}: Violet reads Markdown (.md) pages, not MDX. Rename it to .md, without MDX imports or components, or remove it.`);
-              if (relative(dir, file) === 'index.mdx') mdxHome = relative(root, file);
+              const rel = relative(dir, file);
+              const extension = extname(rel);
+              const folder = dirname(rel);
+              const id = basename(rel, extension) !== 'index' ? undefined : folder === '.' ? 'index' : slugify(folder);
+              unread.push({ shown: relative(root, file), extension, id });
             }
           }
           for (const file of listMarkdown(dir)) {
@@ -312,9 +319,19 @@ export function notesLoader(): Loader {
           });
         }
 
-        if (mdxHome && !taken.has('index')) {
-          logger.warn(`The site has no home page: ${mdxHome} is MDX. Rename it to index.md, or put an index.md at the top of the notes.`);
-        }
+        const warnings = unread.map(({ shown, extension, id }) => {
+          const without = extension === '.mdx' ? ', without MDX imports or components' : extension === '.mdoc' ? ', without Markdoc tags' : '';
+          const skipping = `Skipping ${shown}: Violet reads Markdown pages ending in .md only.`;
+          const at = id && taken.get(id);
+          if (id === 'index') {
+            return at
+              ? `${skipping} ${pageUrl(id)} shows ${at} instead; remove it.`
+              : `${skipping} The site has no home page: rename it to index.md${without}, or put an index.md at the top of the notes.`;
+          }
+          // A folder's own page is its README.md: an index.md in a folder is a page of its own, at /folder/index/.
+          if (id) return `${skipping} ${pageUrl(id)} ${at ? `shows ${at} instead` : 'has no page'}; a folder's own page is its README.md${without}.`;
+          return `${skipping} Rename it to .md${without}, or remove it.`;
+        });
 
         for (const chain of chains(placed)) {
           chain.forEach((page, i) => {
@@ -324,12 +341,16 @@ export function notesLoader(): Loader {
             if (after && !page.own.next) data.next = { link: pageUrl(after.id), label: after.title };
           });
         }
-        return entries;
+        return { entries, warnings };
       };
 
+      /** The warnings the last sync gave, so that in dev a change elsewhere does not repeat them. */
+      let warned = new Set<string>();
       /** Replace the store only once every page parsed, so a bad edit in dev keeps the last good pages. */
       const sync = async () => {
-        const entries = await collect();
+        const { entries, warnings } = await collect();
+        for (const warning of warnings) if (!warned.has(warning)) logger.warn(warning);
+        warned = new Set(warnings);
         store.clear();
         for (const entry of entries) store.set(entry);
         logger.info(`${entries.length} pages`);
@@ -339,7 +360,9 @@ export function notesLoader(): Loader {
       if (watcher) {
         for (const { dir } of sources) watcher.add(dir);
         const onChange = (changed: string) => {
-          const feeds = changed.endsWith('.md') || (options.extraPages?.feeds?.(changed) ?? false);
+          // A page in a format Violet does not read changes its warnings, so it syncs too.
+          const page = changed.endsWith('.md') || UNREAD_EXTENSIONS.some((extension) => changed.endsWith(extension));
+          const feeds = page || (options.extraPages?.feeds?.(changed) ?? false);
           if (!feeds || !sources.some(({ dir }) => changed.startsWith(dir))) return;
           sync().catch((error: Error) => {
             logger.error(`Kept the last good pages; fix and save again: ${error.message}`);
