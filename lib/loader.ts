@@ -341,11 +341,11 @@ export function notesLoader(): Loader {
           if (section && kind !== undefined) kindsBySection.set(section, [...(kindsBySection.get(section) ?? []), kind]);
         }
         // The decision kind's list is a route of its own at /decisions/, with or without a decisions folder.
-        const decisionsList = options.kinds.includes('decision') && !taken.has('decisions');
-        if (decisionsList) taken.set('decisions', 'the decisions list');
+        // The route wins over a page there, such as decisions/README.md, so it is what the address shows.
+        if (options.kinds.includes('decision')) taken.set('decisions', 'the decisions list');
         for (const section of sections()) {
           const id = slugify(section);
-          if (taken.has(id) || (section === 'decisions' && decisionsList)) continue;
+          if (taken.has(id)) continue;
           taken.set(id, `the ${section} section page`);
           sectionPages.add(id);
           // A folder of planning pages, whatever it is called, gets its planning tables.
@@ -417,14 +417,30 @@ export function notesLoader(): Loader {
       await sync();
       if (watcher) {
         for (const { dir } of sources) watcher.add(dir);
+        // One sync at a time: events close together (a rename is an unlink and an add) run one more
+        // sync after the current one, rather than two at once that both print the same warnings.
+        let syncing = false;
+        let again = false;
+        const resync = async () => {
+          if (syncing) {
+            again = true;
+            return;
+          }
+          syncing = true;
+          do {
+            again = false;
+            await sync().catch((error: Error) => {
+              logger.error(`Kept the last good pages; fix and save again: ${error.message}`);
+            });
+          } while (again);
+          syncing = false;
+        };
         const onChange = (event: 'change' | 'add' | 'unlink') => (changed: string) => {
           // Adding or removing a page Violet does not read changes the warnings; saving one changes nothing it shows.
           const page = changed.endsWith('.md') || (event !== 'change' && isUnread(basename(changed), markdoc));
           const feeds = page || (options.extraPages?.feeds?.(changed) ?? false);
           if (!feeds || !sources.some(({ dir }) => changed.startsWith(dir))) return;
-          sync().catch((error: Error) => {
-            logger.error(`Kept the last good pages; fix and save again: ${error.message}`);
-          });
+          resync();
         };
         watcher.on('change', onChange('change'));
         watcher.on('add', onChange('add'));

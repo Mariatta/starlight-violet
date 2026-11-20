@@ -139,6 +139,14 @@ describe('syncs that warn', { concurrency: true }, () => {
     assert.equal(status, 0, output);
     assert.ok(output.includes(`${skipping('../notes/decisions/index.mdx')} /violet-tests/decisions/ shows the decisions list instead; remove it.`), output);
   });
+  test('an MDX folder page where the decisions list is, beside a README', async () => {
+    const { status, output } = await build('notes/decisions/index.mdx', '---\ntitle: Decisions\n---\n', {
+      also: { 'notes/decisions/README.md': '# Decisions\n' },
+      step: 'sync',
+    });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/decisions/index.mdx')} /violet-tests/decisions/ shows the decisions list instead; remove it.`), output);
+  });
   test('an MDX home page whose name is not in lower case', async () => {
     const { status, output } = await build('notes/Index.mdx', '---\ntitle: Welcome\n---\n', { step: 'sync' });
     assert.equal(status, 0, output);
