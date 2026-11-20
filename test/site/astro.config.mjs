@@ -26,7 +26,7 @@ export default defineConfig({
           notes: '../notes',
           kinds: ['planning', 'reference', 'decision', 'handoff'],
           customKinds: { checklist },
-          skip: ['work/DRAFT.md'],
+          skip: ['work/DRAFT.md', 'work/*.draft.mdx'],
           sidebar: false,
         }),
       ],

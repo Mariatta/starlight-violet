@@ -56,7 +56,33 @@ repo, such as `docs-site/`, next to the notes in `docs/`.
    };
    ```
 
-5. Give a note a kind. In `docs/deploy.md`:
+5. Replace the template's home page. Starlight's template makes it an MDX
+   file, `src/content/docs/index.mdx`, and Violet reads Markdown (`.md`)
+   pages only, so the build skips it with a warning and the site has no
+   home page. Remove it, from `docs-site/` as in step 2:
+
+   ```sh
+   rm src/content/docs/index.mdx
+   ```
+
+   and write the home page with the notes, in `../docs/index.md` (the
+   `notes` folder from step 3):
+
+   ```markdown
+   ---
+   title: Project notes
+   template: splash
+   hero:
+     tagline: Design notes, runbooks and plans for the project.
+   ---
+
+   ::sections
+   ```
+
+   The tagline is yours to change. `::sections` gives each top-level folder
+   of the notes a card, so it fills in once the notes have folders.
+
+6. Give a note a kind, in a folder of its own. In `../docs/runbooks/deploy.md`:
 
    ```markdown
    ---
@@ -70,14 +96,15 @@ repo, such as `docs-site/`, next to the notes in `docs/`.
    ...
    ```
 
-6. Run the site:
+7. Run the site:
 
    ```sh
    npx astro dev
    ```
 
-   Every Markdown file in `docs/` is a page, folders become sidebar groups,
-   and `deploy.md` shows its status and date in a header.
+   Every Markdown file in `../docs/` is a page, folders become sidebar groups,
+   the home page has a card for `runbooks`, and `deploy.md` shows its status
+   and date in a header.
 :::
 
 ## Next
@@ -85,5 +112,6 @@ repo, such as `docs-site/`, next to the notes in `docs/`.
 - Turn on the [kinds](../kinds/) you need, and require them where they
   belong with the [`require` option](../configuration/).
 - Point your coding agent at the [writing guide](../guide/writing/#pointing-your-agent-here).
-- Make the home page a landing page with
-  [`::sections`](../guide/shortcodes/#a-landing-page).
+- Shape the home page: [`::sections{hide=...}`](../guide/shortcodes/#a-landing-page)
+  leaves folders out, and the `hero` also takes an `image` and `actions`
+  (buttons), as in Starlight.

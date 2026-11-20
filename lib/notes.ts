@@ -42,17 +42,41 @@ export function isSkipped(rel: string): boolean {
   return getOptions().skip.some((pattern) => pattern.test(rel));
 }
 
-/** Every Markdown file under `dir`, skipping dotfiles and build folders. */
-export function listMarkdown(dir: string): string[] {
+/** Every file under `dir` whose name `wanted` accepts, skipping dotfiles and build folders. */
+function listWhere(dir: string, wanted: (name: string) => boolean): string[] {
   if (!existsSync(dir)) return [];
   const files: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
     const path = join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...listMarkdown(path));
-    else if (entry.name.endsWith('.md')) files.push(path);
+    if (entry.isDirectory()) files.push(...listWhere(path, wanted));
+    else if (wanted(entry.name)) files.push(path);
   }
   return files.sort();
+}
+
+/** Every Markdown file under `dir`, skipping dotfiles and build folders. */
+export function listMarkdown(dir: string): string[] {
+  return listWhere(dir, (name) => name.endsWith('.md'));
+}
+
+/** The page formats Starlight reads and Violet does not: Markdown's other extensions and MDX. */
+const UNREAD_EXTENSIONS = ['.markdown', '.mdown', '.mkdn', '.mkd', '.mdwn', '.mdx'];
+
+/**
+ * Whether a file name is a page in a format Violet does not read: one of
+ * UNREAD_EXTENSIONS, or `.mdoc` when the site has Markdoc (as Starlight
+ * reads it only then), which Starlight reads; or any of these or `.md` in
+ * other than lower case, which neither reads.
+ */
+export function isUnread(name: string, markdoc: boolean): boolean {
+  const lower = name.toLowerCase();
+  return [...UNREAD_EXTENSIONS, ...(markdoc ? ['.mdoc'] : [])].some((extension) => lower.endsWith(extension)) || (lower.endsWith('.md') && !name.endsWith('.md'));
+}
+
+/** Every page under `dir` in a format Violet does not read, so the loader names them rather than dropping them unseen. */
+export function listUnread(dir: string, markdoc: boolean): string[] {
+  return listWhere(dir, (name) => isUnread(name, markdoc));
 }
 
 /** Whether the site builds a page from this notes file: it is in the notes, not skipped, and not the landing page. */

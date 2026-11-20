@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- A page in a format Starlight reads and Violet does not (`.mdx`, `.markdown`, `.mdown`, `.mkdn`, `.mkd`, `.mdwn`, `.mdoc` on a site with Markdoc), or with an upper-case extension such as `.MDX` or `.MD`, which neither reads, is named in a build warning, in the notes or in the site's `src/content/docs/`, even when another page fails the build. Before, it was left out without a word, so the `index.mdx` home page of Starlight's template disappeared and the site had no home page. The warning says what to do: an `index` or `README` page is told which page has its address (the decisions list's included), or to become the home page or its folder's `README.md`; any other is told to rename it to `.md`, or, when a `.md` file of that name is there already (named in upper or lower case, page or not), to choose another name; an `index` or `README` page that a rename would put over such a file is told to rename that file first. When another page fails the build, that advice is still given, except to an `index` or `README` page, whose advice needs the other pages' addresses. A site page whose name starts with `_` is a partial, as in Starlight, and gets no warning. In `astro dev`, adding or removing such a file updates the warnings, and neither saving one nor an edit elsewhere repeats them. The getting-started page now replaces the template's home page with an `index.md` in the notes.
+- A Markdown page in the site's own `src/content/docs/` whose name starts with `_`, such as `_shared.md`, is a partial, as in Starlight, and no longer a page. Before, Violet published it at `/shared/`, and the folder sidebar listed it as `_shared`, a slug Starlight has no page for, which failed the build.
+
 ## 0.3.0 (2026-11-17)
 
 - The decision kind's contract says what superseding or amending a decision does to it: one superseded whole has its `date` moved to the day it was superseded, with the day it was locked kept in `history`; one superseded in part, or amended, stays `locked`, keeps its `date`, and names the part in `superseded_by` or `amended_by`.

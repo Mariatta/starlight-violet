@@ -7,14 +7,15 @@
  * site generates (the `extraPages` option) join them.
  */
 import type { Loader } from 'astro/loaders';
-import { dirname, join, relative } from 'node:path';
+import { basename, dirname, extname, join, relative } from 'node:path';
+import { readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ZodError } from 'astro/zod';
 import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../kinds';
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
-import { idFor, isSkipped, LANDING, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
+import { idFor, isSkipped, isUnread, LANDING, listMarkdown, listUnread, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { isSplit, pageParts, readPlan, sectionHeadings, type Plan } from './plans';
 import { notFrontMatter, renderPlain } from '../markdown/plain';
 import { FIELD_HASH } from '../markdown/rows';
@@ -98,6 +99,70 @@ interface Source {
   role: 'notes' | 'guide' | 'site';
 }
 
+/** A page in a format Violet does not read, and the address it is for. */
+interface Unread {
+  shown: string;
+  extension: string;
+  /** An index or README page is its folder's page (or the home page); any other is a page of its own. */
+  role: 'index' | 'readme' | 'page';
+  id: string;
+  /**
+   * The `.md` file the advice renames it to (`README.md` for a folder's page, `index.md` for the
+   * home page), and whether there is one already, a page or not, under that name in upper or lower case.
+   */
+  twin: { name: string; shown: string; exists: boolean };
+}
+
+/** What every warning about a page Violet does not read starts with; on its own when the build stopped before the rest was known. */
+function skipping(shown: string): string {
+  return `Skipping ${shown}: Violet reads Markdown pages ending in .md only.`;
+}
+
+/** How to rename a page Violet does not read, beyond the extension. */
+function without(extension: string): string {
+  return extension === '.mdx' ? ', without MDX imports or components' : extension === '.mdoc' ? ', without Markdoc tags' : '';
+}
+
+/** The advice for a page of its own: rename it, unless a `.md` page of that name would clash. */
+function pageAdvice({ shown, extension }: Unread, clash: string | undefined): string {
+  if (clash) return `${skipping(shown)} Renaming it to .md would clash with ${clash}: give it another name ending in .md${without(extension)}, or remove it.`;
+  return `${skipping(shown)} Rename it to .md${without(extension)}, or remove it.`;
+}
+
+/**
+ * The warning when the build stopped before the addresses were known: a page
+ * of its own still gets its advice, checked against the files there, and an
+ * index or README page, whose advice depends on the other pages, gets none.
+ */
+function unreadFallback(page: Unread): string {
+  return page.role === 'page' ? pageAdvice(page, page.twin.exists ? page.twin.shown : undefined) : skipping(page.shown);
+}
+
+/**
+ * The warning for a page Violet does not read, saying what to do with it:
+ * `taken` maps each address to the page that has it, and `sectionPages` are
+ * those a folder's README.md would replace.
+ */
+function unreadWarning(page: Unread, taken: Map<string, string>, sectionPages: Set<string>): string {
+  const { shown, extension, role, id } = page;
+  const at = taken.get(id);
+  if (role === 'page') {
+    // The file itself, a page or not (one left out by `skip` would be overwritten), or another page at that address.
+    const clash = page.twin.exists ? (at === page.twin.shown ? `${at}, at ${pageUrl(id)}` : page.twin.shown) : at && !sectionPages.has(id) ? `${at}, at ${pageUrl(id)}` : undefined;
+    return pageAdvice(page, clash);
+  }
+  // A page the site has there already, other than a section page a README.md would replace.
+  if (at && !sectionPages.has(id)) return `${skipping(shown)} ${pageUrl(id)} shows ${at} instead; remove it.`;
+  // A file the rename would overwrite, such as a `readme.md` that is a page of its own, or a skipped `index.md`.
+  if (page.twin.exists) {
+    const where = id === 'index' ? 'The site has no home page' : `${pageUrl(id)} ${at ? `shows ${at}` : 'has no page'}`;
+    return `${skipping(shown)} ${where}, and renaming it to ${page.twin.name} would clash with ${page.twin.shown}: rename that file first, or remove this one.`;
+  }
+  if (id === 'index') return `${skipping(shown)} The site has no home page: rename it to index.md${without(extension)}, or put an index.md at the top of the notes.`;
+  // A folder's own page is its README.md: an index.md in a folder is a page of its own, at /folder/index/.
+  return `${skipping(shown)} ${pageUrl(id)} ${at ? `shows ${at}` : 'has no page'}; make it the folder's page by renaming it to README.md${without(extension)}, or remove it.`;
+}
+
 export function notesLoader(): Loader {
   return {
     name: `${PACKAGE}:notes`,
@@ -121,16 +186,65 @@ export function notesLoader(): Loader {
         return { ...rendered, html: addHeadingLinks(rendered.html) };
       };
 
-      /** Every page, parsed, checked and rendered; throws on a bad one. */
+      // Starlight reads `.mdoc` pages only when the site has Markdoc, and so warns about them only then.
+      const markdoc = config.integrations.some(({ name }) => name === '@astrojs/markdoc');
+
+      /**
+       * Pages in a format Violet does not read, each with the address an
+       * index or README page among them is for: Starlight's template ships its
+       * home page as an `index.mdx`.
+       */
+      const findUnread = (): Unread[] => {
+        const unread: Unread[] = [];
+        for (const { dir, role } of sources) {
+          if (role === 'guide') continue;
+          for (const file of listUnread(dir, markdoc)) {
+            if (role === 'notes' && isSkipped(notesRel(file))) continue;
+            // Nor a partial, whose name starts with `_`, as in collect.
+            if (role === 'site' && basename(file).startsWith('_')) continue;
+            const rel = relative(dir, file);
+            const extension = extname(rel);
+            const folder = dirname(rel);
+            const stem = basename(rel, extension);
+            // `Index.mdx` is an index page just as `index.mdx` is. A README is
+            // one only as `README`, as idFor has it; `readme.md` is a page of its own.
+            const index = stem.toLowerCase() === 'index';
+            const pageRole = index ? 'index' : stem === 'README' ? 'readme' : 'page';
+            const id = index ? (folder === '.' ? 'index' : slugify(folder)) : idFor(join(dir, folder, `${stem}.md`), dir);
+            // The name the advice renames it to: the home page is index.md, whether this is an
+            // index or a README page, and a folder's page is its README.md. A README at the top
+            // is the home page unless looseFiles files it under a folder; `index/README.mdx` is not.
+            const name = pageRole === 'page' ? `${stem}.md` : folder === '.' && id === 'index' ? 'index.md' : 'README.md';
+            // Another file of that name in any case: `Prose.md` replaces `prose.md` on a filesystem
+            // that ignores case, and has its address on one that does not. Not the page itself,
+            // which on the first kind is its own `Diagram.md` when it is `Diagram.MD`.
+            const there = readdirSync(dirname(file)).find((other) => other !== basename(file) && other.toLowerCase() === name.toLowerCase());
+            unread.push({
+              shown: relative(root, file),
+              extension: extension.toLowerCase(),
+              role: pageRole,
+              id,
+              twin: { name, shown: relative(root, join(dirname(file), there ?? name)), exists: there !== undefined },
+            });
+          }
+        }
+        return unread;
+      };
+
+      /** Every page, parsed, checked and rendered, with the address each took; throws on a bad page. */
       const collect = async () => {
         const entries: any[] = [];
         const placed: Placed[] = [];
         const taken = new Map<string, string>();
+        /** The section pages Violet made, which a folder's README.md would replace. */
+        const sectionPages = new Set<string>();
         for (const { dir, role } of sources) {
           for (const file of listMarkdown(dir)) {
             const rel = role === 'notes' ? sitePath(file, dir) : relative(dir, file);
             if (role === 'notes' && isSkipped(notesRel(file))) continue;
             if (role === 'guide' && !guideWanted(rel, options.kinds)) continue;
+            // Starlight reads no page whose name starts with `_`: it is a partial.
+            if (role === 'site' && basename(file).startsWith('_')) continue;
             const page = readPage(file);
             const shown = relative(root, file);
             if (page.yamlError) {
@@ -281,10 +395,14 @@ export function notesLoader(): Loader {
           const kind = readPage(file).data.kind;
           if (section && kind !== undefined) kindsBySection.set(section, [...(kindsBySection.get(section) ?? []), kind]);
         }
+        // The decision kind's list is a route of its own at /decisions/, with or without a decisions folder.
+        // The route wins over a page there, such as decisions/README.md, so it is what the address shows.
+        if (options.kinds.includes('decision')) taken.set('decisions', 'the decisions list');
         for (const section of sections()) {
           const id = slugify(section);
-          if (taken.has(id) || (section === 'decisions' && options.kinds.includes('decision'))) continue;
+          if (taken.has(id)) continue;
           taken.set(id, `the ${section} section page`);
+          sectionPages.add(id);
           // A folder of planning pages, whatever it is called, gets its planning tables.
           const kindsHere = new Set(kindsBySection.get(section) ?? []);
           const planningOnly = kindsHere.size === 1 && kindsHere.has('planning');
@@ -311,12 +429,41 @@ export function notesLoader(): Loader {
             if (after && !page.own.next) data.next = { link: pageUrl(after.id), label: after.title };
           });
         }
-        return entries;
+        return { entries, taken, sectionPages };
       };
 
+      /** The warning last given for each page Violet does not read, so that in dev a change elsewhere does not repeat it. */
+      let warned = new Map<string, string>();
       /** Replace the store only once every page parsed, so a bad edit in dev keeps the last good pages. */
       const sync = async () => {
-        const entries = await collect();
+        // Not a page's fault when it fails (a folder removed mid-scan in dev): say so, and read the pages anyway.
+        let unread: Unread[] | undefined;
+        try {
+          unread = findUnread();
+        } catch (error) {
+          logger.warn(`Could not look for pages Violet does not read, so their warnings may be out of date: ${(error as Error).message}`);
+        }
+        let collected: Awaited<ReturnType<typeof collect>>;
+        try {
+          collected = await collect();
+        } catch (error) {
+          // The build stops here, before the addresses are known: name the pages it skipped anyway.
+          // The files gone since drop out, so one removed and added back is named again.
+          if (unread) {
+            warned = new Map(unread.map((page) => {
+              const last = warned.get(page.shown);
+              if (!last) logger.warn(unreadFallback(page));
+              return [page.shown, last ?? unreadFallback(page)];
+            }));
+          }
+          throw error;
+        }
+        const { entries, taken, sectionPages } = collected;
+        if (unread) {
+          const warnings = new Map(unread.map((page) => [page.shown, unreadWarning(page, taken, sectionPages)]));
+          for (const [shown, warning] of warnings) if (warned.get(shown) !== warning) logger.warn(warning);
+          warned = warnings;
+        }
         store.clear();
         for (const entry of entries) store.set(entry);
         logger.info(`${entries.length} pages`);
@@ -325,16 +472,34 @@ export function notesLoader(): Loader {
       await sync();
       if (watcher) {
         for (const { dir } of sources) watcher.add(dir);
-        const onChange = (changed: string) => {
-          const feeds = changed.endsWith('.md') || (options.extraPages?.feeds?.(changed) ?? false);
-          if (!feeds || !sources.some(({ dir }) => changed.startsWith(dir))) return;
-          sync().catch((error: Error) => {
-            logger.error(`Kept the last good pages; fix and save again: ${error.message}`);
-          });
+        // One sync at a time: events close together (a rename is an unlink and an add) run one more
+        // sync after the current one, rather than two at once that both print the same warnings.
+        let syncing = false;
+        let again = false;
+        const resync = async () => {
+          if (syncing) {
+            again = true;
+            return;
+          }
+          syncing = true;
+          do {
+            again = false;
+            await sync().catch((error: Error) => {
+              logger.error(`Kept the last good pages; fix and save again: ${error.message}`);
+            });
+          } while (again);
+          syncing = false;
         };
-        watcher.on('change', onChange);
-        watcher.on('add', onChange);
-        watcher.on('unlink', onChange);
+        const onChange = (event: 'change' | 'add' | 'unlink') => (changed: string) => {
+          // Adding or removing a page Violet does not read changes the warnings; saving one changes nothing it shows.
+          const page = changed.endsWith('.md') || (event !== 'change' && isUnread(basename(changed), markdoc));
+          const feeds = page || (options.extraPages?.feeds?.(changed) ?? false);
+          if (!feeds || !sources.some(({ dir }) => changed.startsWith(dir))) return;
+          resync();
+        };
+        watcher.on('change', onChange('change'));
+        watcher.on('add', onChange('add'));
+        watcher.on('unlink', onChange('unlink'));
       }
     },
   };
