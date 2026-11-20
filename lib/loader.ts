@@ -169,7 +169,7 @@ export function notesLoader(): Loader {
             const extension = extname(rel);
             const folder = dirname(rel);
             const stem = basename(rel, extension);
-            // `Index.mdx` is an index page too: as Index.md its address would be the same. A README is
+            // `Index.mdx` is an index page just as `index.mdx` is. A README is
             // one only as `README`, as idFor has it; `readme.md` is a page of its own.
             const id = stem.toLowerCase() === 'index' ? (folder === '.' ? 'index' : slugify(folder)) : stem === 'README' ? idFor(join(dir, folder, 'README.md'), dir) : undefined;
             unread.push({ shown: relative(root, file), extension: extension.toLowerCase(), id });
