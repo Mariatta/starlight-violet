@@ -106,8 +106,11 @@ interface Unread {
   /** An index or README page is its folder's page (or the home page); any other is a page of its own. */
   role: 'index' | 'readme' | 'page';
   id: string;
-  /** The `.md` file renaming it would make, and whether there is one already, a page or not, under that name in any case. */
-  twin: { shown: string; exists: boolean };
+  /**
+   * The `.md` file the advice renames it to (`README.md` for a folder's page, `index.md` for the
+   * home page), and whether there is one already, a page or not, under that name in upper or lower case.
+   */
+  twin: { name: string; shown: string; exists: boolean };
 }
 
 /** What every warning about a page Violet does not read starts with; on its own when the build stopped before the rest was known. */
@@ -150,6 +153,11 @@ function unreadWarning(page: Unread, taken: Map<string, string>, sectionPages: S
   }
   // A page the site has there already, other than a section page a README.md would replace.
   if (at && !sectionPages.has(id)) return `${skipping(shown)} ${pageUrl(id)} shows ${at} instead; remove it.`;
+  // A file the rename would overwrite, such as a `readme.md` that is a page of its own, or a skipped `index.md`.
+  if (page.twin.exists) {
+    const where = id === 'index' ? 'The site has no home page' : `${pageUrl(id)} ${at ? `shows ${at}` : 'has no page'}`;
+    return `${skipping(shown)} ${where}, and renaming it to ${page.twin.name} would clash with ${page.twin.shown}: rename that file first, or remove this one.`;
+  }
   if (id === 'index') return `${skipping(shown)} The site has no home page: rename it to index.md${without(extension)}, or put an index.md at the top of the notes.`;
   // A folder's own page is its README.md: an index.md in a folder is a page of its own, at /folder/index/.
   return `${skipping(shown)} ${pageUrl(id)} ${at ? `shows ${at}` : 'has no page'}; make it the folder's page by renaming it to README.md${without(extension)}, or remove it.`;
@@ -200,18 +208,20 @@ export function notesLoader(): Loader {
             const stem = basename(rel, extension);
             // `Index.mdx` is an index page just as `index.mdx` is. A README is
             // one only as `README`, as idFor has it; `readme.md` is a page of its own.
-            const twin = join(dir, folder, `${stem}.md`);
+            const index = stem.toLowerCase() === 'index';
+            const pageRole = index ? 'index' : stem === 'README' ? 'readme' : 'page';
+            // The name the advice renames it to: a folder's page is its README.md.
+            const name = pageRole === 'page' ? `${stem}.md` : index && folder === '.' ? 'index.md' : 'README.md';
             // Another file of that name in any case: `Prose.md` replaces `prose.md` on a filesystem
             // that ignores case, and has its address on one that does not. Not the page itself,
             // which on the first kind is its own `Diagram.md` when it is `Diagram.MD`.
-            const there = readdirSync(dirname(file)).find((name) => name !== basename(file) && name.toLowerCase() === basename(twin).toLowerCase());
-            const index = stem.toLowerCase() === 'index';
+            const there = readdirSync(dirname(file)).find((other) => other !== basename(file) && other.toLowerCase() === name.toLowerCase());
             unread.push({
               shown: relative(root, file),
               extension: extension.toLowerCase(),
-              role: index ? 'index' : stem === 'README' ? 'readme' : 'page',
-              id: index ? (folder === '.' ? 'index' : slugify(folder)) : idFor(twin, dir),
-              twin: { shown: relative(root, there ? join(dirname(file), there) : twin), exists: there !== undefined },
+              role: pageRole,
+              id: index ? (folder === '.' ? 'index' : slugify(folder)) : idFor(join(dir, folder, `${stem}.md`), dir),
+              twin: { name, shown: relative(root, join(dirname(file), there ?? name)), exists: there !== undefined },
             });
           }
         }

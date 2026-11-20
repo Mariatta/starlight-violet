@@ -192,6 +192,16 @@ describe('syncs that warn', { concurrency: true }, () => {
     assert.equal(status, 0, output);
     assert.ok(output.includes(`${skipping('../notes/work/prose.mdx')} Renaming it to .md would clash with ../notes/work/prose.md, at /violet-tests/work/prose/: give it another name ending in .md, without MDX imports or components, or remove it.`), output);
   });
+  test('an MDX page beside a Markdown page of the same name in another case', async () => {
+    const { status, output } = await build('notes/work/Spec.mdx', '---\ntitle: Spec\n---\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/Spec.mdx')} Renaming it to .md would clash with ../notes/work/SPEC.md, at /violet-tests/work/spec/: give it another name ending in .md, without MDX imports or components, or remove it.`), output);
+  });
+  test('an MDX README beside a readme.md, a page of its own', async () => {
+    const { status, output } = await build('notes/work/sub/README.mdx', '# Sub\n', { also: { 'notes/work/sub/readme.md': '---\nkind: reference\nstatus: current\nupdated: 2026-11-20\n---\n\n# Read me\n' }, step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/sub/README.mdx')} /violet-tests/work/sub/ has no page, and renaming it to README.md would clash with ../notes/work/sub/readme.md: rename that file first, or remove this one.`), output);
+  });
   test('an MDX page beside a Markdown file the skip option leaves out, named in another case', async () => {
     const { status, output } = await build('notes/work/draft.mdx', '---\ntitle: Draft\n---\n', { step: 'sync' });
     assert.equal(status, 0, output);
