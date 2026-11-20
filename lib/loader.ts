@@ -8,7 +8,7 @@
  */
 import type { Loader } from 'astro/loaders';
 import { basename, dirname, extname, join, relative } from 'node:path';
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ZodError } from 'astro/zod';
 import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../kinds';
@@ -106,7 +106,7 @@ interface Unread {
   /** An index or README page is its folder's page (or the home page); any other is a page of its own. */
   role: 'index' | 'readme' | 'page';
   id: string;
-  /** The `.md` file renaming it would make, and whether one of that exact name is there already, a page or not. */
+  /** The `.md` file renaming it would make, and whether there is one already, a page or not, under that name in any case. */
   twin: { shown: string; exists: boolean };
 }
 
@@ -201,14 +201,17 @@ export function notesLoader(): Loader {
             // `Index.mdx` is an index page just as `index.mdx` is. A README is
             // one only as `README`, as idFor has it; `readme.md` is a page of its own.
             const twin = join(dir, folder, `${stem}.md`);
+            // Another file of that name in any case: `Prose.md` replaces `prose.md` on a filesystem
+            // that ignores case, and has its address on one that does not. Not the page itself,
+            // which on the first kind is its own `Diagram.md` when it is `Diagram.MD`.
+            const there = readdirSync(dirname(file)).find((name) => name !== basename(file) && name.toLowerCase() === basename(twin).toLowerCase());
             const index = stem.toLowerCase() === 'index';
             unread.push({
               shown: relative(root, file),
               extension: extension.toLowerCase(),
               role: index ? 'index' : stem === 'README' ? 'readme' : 'page',
               id: index ? (folder === '.' ? 'index' : slugify(folder)) : idFor(twin, dir),
-              // By exact name: on a filesystem that ignores case, `Diagram.MD` is its own `Diagram.md`.
-              twin: { shown: relative(root, twin), exists: existsSync(twin) && readdirSync(dirname(twin)).includes(basename(twin)) },
+              twin: { shown: relative(root, there ? join(dirname(file), there) : twin), exists: there !== undefined },
             });
           }
         }

@@ -174,6 +174,7 @@ describe('syncs that warn', { concurrency: true }, () => {
       also: {
         'notes/work/unknown-task.md': '---\ntitle: Unknown task\n---\n\nSee :task[99].\n',
         'notes/work/prose.mdx': '---\ntitle: Prose\n---\n',
+        'notes/work/Spec.mdx': '---\ntitle: Spec\n---\n',
         'notes/work/index.mdx': '---\ntitle: Work\n---\n',
       },
       step: 'sync',
@@ -183,12 +184,18 @@ describe('syncs that warn', { concurrency: true }, () => {
     // A page of its own keeps its advice; an index page's needs the addresses, which the failed build never knew.
     assert.ok(output.includes(`${skipping('../notes/work/diagram.mdx')} Rename it to .md, without MDX imports or components, or remove it.`), output);
     assert.ok(output.includes(`${skipping('../notes/work/prose.mdx')} Renaming it to .md would clash with ../notes/work/prose.md: give it another name ending in .md, without MDX imports or components, or remove it.`), output);
+    assert.ok(output.includes(`${skipping('../notes/work/Spec.mdx')} Renaming it to .md would clash with ../notes/work/SPEC.md: give it another name ending in .md, without MDX imports or components, or remove it.`), output);
     assert.ok(output.includes(`${skipping('../notes/work/index.mdx')}\n`), output);
   });
   test('an MDX page beside a Markdown page of the same name', async () => {
     const { status, output } = await build('notes/work/prose.mdx', '---\ntitle: Prose\n---\n', { step: 'sync' });
     assert.equal(status, 0, output);
     assert.ok(output.includes(`${skipping('../notes/work/prose.mdx')} Renaming it to .md would clash with ../notes/work/prose.md, at /violet-tests/work/prose/: give it another name ending in .md, without MDX imports or components, or remove it.`), output);
+  });
+  test('an MDX page beside a Markdown file the skip option leaves out, named in another case', async () => {
+    const { status, output } = await build('notes/work/draft.mdx', '---\ntitle: Draft\n---\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/draft.mdx')} Renaming it to .md would clash with ../notes/work/DRAFT.md: give it another name ending in .md, without MDX imports or components, or remove it.`), output);
   });
   test('an MDX page beside a Markdown file the skip option leaves out', async () => {
     const { status, output } = await build('notes/work/DRAFT.mdx', '---\ntitle: Draft\n---\n', { step: 'sync' });
