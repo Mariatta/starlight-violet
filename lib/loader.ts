@@ -210,8 +210,9 @@ export function notesLoader(): Loader {
             // one only as `README`, as idFor has it; `readme.md` is a page of its own.
             const index = stem.toLowerCase() === 'index';
             const pageRole = index ? 'index' : stem === 'README' ? 'readme' : 'page';
-            // The name the advice renames it to: a folder's page is its README.md.
-            const name = pageRole === 'page' ? `${stem}.md` : index && folder === '.' ? 'index.md' : 'README.md';
+            // The name the advice renames it to: the home page is index.md, whether this is an
+            // index or a README page, and a folder's page is its README.md.
+            const name = pageRole === 'page' ? `${stem}.md` : folder === '.' ? 'index.md' : 'README.md';
             // Another file of that name in any case: `Prose.md` replaces `prose.md` on a filesystem
             // that ignores case, and has its address on one that does not. Not the page itself,
             // which on the first kind is its own `Diagram.md` when it is `Diagram.MD`.

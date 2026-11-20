@@ -202,6 +202,17 @@ describe('syncs that warn', { concurrency: true }, () => {
     assert.equal(status, 0, output);
     assert.ok(output.includes(`${skipping('../notes/work/sub/README.mdx')} /violet-tests/work/sub/ has no page, and renaming it to README.md would clash with ../notes/work/sub/readme.md: rename that file first, or remove this one.`), output);
   });
+  test('an MDX index page in a folder beside a readme.md, a page of its own', async () => {
+    const { status, output } = await build('notes/work/sub/index.mdx', '# Sub\n', { also: { 'notes/work/sub/readme.md': '---\nkind: reference\nstatus: current\nupdated: 2026-11-20\n---\n\n# Read me\n' }, step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/sub/index.mdx')} /violet-tests/work/sub/ has no page, and renaming it to README.md would clash with ../notes/work/sub/readme.md: rename that file first, or remove this one.`), output);
+  });
+  test('an MDX README at the top of the notes beside a readme.md, with no home page', async () => {
+    // The advice renames it to index.md, which clashes with nothing; readme.md is a page of its own.
+    const { status, output } = await build('notes/README.mdx', '# Notes\n', { without: 'notes/index.md', also: { 'notes/readme.md': '# Read me\n' }, step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/README.mdx')} The site has no home page: rename it to index.md, without MDX imports or components, or put an index.md at the top of the notes.`), output);
+  });
   test('an MDX page beside a Markdown file the skip option leaves out, named in another case', async () => {
     const { status, output } = await build('notes/work/draft.mdx', '---\ntitle: Draft\n---\n', { step: 'sync' });
     assert.equal(status, 0, output);
