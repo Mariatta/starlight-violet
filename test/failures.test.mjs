@@ -134,6 +134,28 @@ describe('syncs that warn', { concurrency: true }, () => {
     assert.equal(status, 0, output);
     assert.ok(output.includes(`${skipping('../notes/work/diagram.mdx')} Rename it to .md, without MDX imports or components, or remove it.`), output);
   });
+  test("an MDX folder page where the decisions list is", async () => {
+    const { status, output } = await build('notes/decisions/index.mdx', '---\ntitle: Decisions\n---\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/decisions/index.mdx')} /violet-tests/decisions/ shows the decisions list instead; remove it.`), output);
+  });
+  test('an MDX page with an upper-case extension', async () => {
+    const { status, output } = await build('notes/work/Diagram.MDX', '---\ntitle: Diagram\n---\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/Diagram.MDX')} Rename it to .md, without MDX imports or components, or remove it.`), output);
+  });
+  test('a Markdoc page on a site without Markdoc', async () => {
+    // Starlight reads .mdoc only with the Markdoc integration, so it is no page here.
+    const { status, output } = await build('notes/work/sheet.mdoc', '# Sheet\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.doesNotMatch(output, /sheet\.mdoc/);
+  });
+  test('an MDX page beside a page that fails the build', async () => {
+    const { status, output } = await build('notes/work/diagram.mdx', '---\ntitle: Diagram\n---\n', { also: { 'notes/work/unknown-task.md': '---\ntitle: Unknown task\n---\n\nSee :task[99].\n' }, step: 'sync' });
+    assert.notEqual(status, 0);
+    assert.match(output, /unknown-task\.md: :task\[99\] matches no task/);
+    assert.ok(output.includes(skipping('../notes/work/diagram.mdx')), output);
+  });
   test('a page ending in .markdown', async () => {
     const { status, output } = await build('notes/work/old.markdown', '# Old\n', { step: 'sync' });
     assert.equal(status, 0, output);

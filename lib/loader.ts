@@ -14,7 +14,7 @@ import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../ki
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
-import { idFor, isSkipped, LANDING, listMarkdown, listUnread, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, UNREAD_EXTENSIONS, words } from './notes';
+import { idFor, isSkipped, LANDING, isUnread, listMarkdown, listUnread, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { isSplit, pageParts, readPlan, sectionHeadings, type Plan } from './plans';
 import { notFrontMatter, renderPlain } from '../markdown/plain';
 import { FIELD_HASH } from '../markdown/rows';
@@ -98,6 +98,34 @@ interface Source {
   role: 'notes' | 'guide' | 'site';
 }
 
+/** A page in a format Violet does not read, with the address it is for when it is an index or README page. */
+interface Unread {
+  shown: string;
+  extension: string;
+  id?: string;
+}
+
+/** What every warning about a page Violet does not read starts with; on its own when the build stopped before the rest was known. */
+function skipping(shown: string): string {
+  return `Skipping ${shown}: Violet reads Markdown pages ending in .md only.`;
+}
+
+/**
+ * The warning for a page Violet does not read, saying what to do with it:
+ * `taken` maps each address to the page that has it, and `sectionPages` are
+ * those a folder's README.md would replace.
+ */
+function unreadWarning({ shown, extension, id }: Unread, taken: Map<string, string>, sectionPages: Set<string>): string {
+  const without = extension === '.mdx' ? ', without MDX imports or components' : extension === '.mdoc' ? ', without Markdoc tags' : '';
+  if (!id) return `${skipping(shown)} Rename it to .md${without}, or remove it.`;
+  const at = taken.get(id);
+  // A page the site has there already, other than a section page a README.md would replace.
+  if (at && !sectionPages.has(id)) return `${skipping(shown)} ${pageUrl(id)} shows ${at} instead; remove it.`;
+  if (id === 'index') return `${skipping(shown)} The site has no home page: rename it to index.md${without}, or put an index.md at the top of the notes.`;
+  // A folder's own page is its README.md: an index.md in a folder is a page of its own, at /folder/index/.
+  return `${skipping(shown)} ${pageUrl(id)} ${at ? `shows ${at}` : 'has no page'}; make it the folder's page by renaming it to README.md${without}, or remove it.`;
+}
+
 export function notesLoader(): Loader {
   return {
     name: `${PACKAGE}:notes`,
@@ -121,34 +149,42 @@ export function notesLoader(): Loader {
         return { ...rendered, html: addHeadingLinks(rendered.html) };
       };
 
-      /** Every page, parsed, checked and rendered, and the warnings to give; throws on a bad page. */
+      // Starlight reads `.mdoc` pages only when the site has Markdoc, and so warns about them only then.
+      const markdoc = config.integrations.some(({ name }) => name === '@astrojs/markdoc');
+
+      /**
+       * Pages in a format Violet does not read, each with the address an
+       * index or README page among them is for: Starlight's template ships its
+       * home page as an `index.mdx`.
+       */
+      const findUnread = (): Unread[] => {
+        const unread: Unread[] = [];
+        for (const { dir, role } of sources) {
+          if (role === 'guide') continue;
+          for (const file of listUnread(dir, markdoc)) {
+            if (role === 'notes' && isSkipped(notesRel(file))) continue;
+            // Starlight reads no page whose name starts with `_` either: it is a partial.
+            if (role === 'site' && basename(file).startsWith('_')) continue;
+            const rel = relative(dir, file);
+            const extension = extname(rel);
+            const folder = dirname(rel);
+            const stem = basename(rel, extension);
+            // A README's address is the one it would get as README.md.
+            const id = stem === 'index' ? (folder === '.' ? 'index' : slugify(folder)) : stem === 'README' ? idFor(join(dir, folder, 'README.md'), dir) : undefined;
+            unread.push({ shown: relative(root, file), extension: extension.toLowerCase(), id });
+          }
+        }
+        return unread;
+      };
+
+      /** Every page, parsed, checked and rendered, with the address each took; throws on a bad page. */
       const collect = async () => {
         const entries: any[] = [];
         const placed: Placed[] = [];
         const taken = new Map<string, string>();
-        /**
-         * Pages in a format Violet does not read, each with the address an
-         * index page among them would have had: Starlight's template ships its
-         * home page as an `index.mdx`.
-         */
-        const unread: { shown: string; extension: string; id?: string }[] = [];
         /** The section pages Violet made, which a folder's README.md would replace. */
         const sectionPages = new Set<string>();
         for (const { dir, role } of sources) {
-          if (role !== 'guide') {
-            for (const file of listUnread(dir)) {
-              if (role === 'notes' && isSkipped(notesRel(file))) continue;
-              // Starlight reads no page whose name starts with `_` either: it is a partial.
-              if (role === 'site' && basename(file).startsWith('_')) continue;
-              const rel = relative(dir, file);
-              const extension = extname(rel);
-              const folder = dirname(rel);
-              const stem = basename(rel, extension);
-              // The address an index or README page is for: a README's is the one it would get as README.md.
-              const id = stem === 'index' ? (folder === '.' ? 'index' : slugify(folder)) : stem === 'README' ? idFor(join(dir, folder, 'README.md'), dir) : undefined;
-              unread.push({ shown: relative(root, file), extension, id });
-            }
-          }
           for (const file of listMarkdown(dir)) {
             const rel = role === 'notes' ? sitePath(file, dir) : relative(dir, file);
             if (role === 'notes' && isSkipped(notesRel(file))) continue;
@@ -303,9 +339,12 @@ export function notesLoader(): Loader {
           const kind = readPage(file).data.kind;
           if (section && kind !== undefined) kindsBySection.set(section, [...(kindsBySection.get(section) ?? []), kind]);
         }
+        // The decision kind's list is a route of its own at /decisions/, with or without a decisions folder.
+        const decisionsList = options.kinds.includes('decision') && !taken.has('decisions');
+        if (decisionsList) taken.set('decisions', 'the decisions list');
         for (const section of sections()) {
           const id = slugify(section);
-          if (taken.has(id) || (section === 'decisions' && options.kinds.includes('decision'))) continue;
+          if (taken.has(id) || (section === 'decisions' && decisionsList)) continue;
           taken.set(id, `the ${section} section page`);
           sectionPages.add(id);
           // A folder of planning pages, whatever it is called, gets its planning tables.
@@ -326,17 +365,6 @@ export function notesLoader(): Loader {
           });
         }
 
-        const warnings = unread.map(({ shown, extension, id }) => {
-          const without = extension === '.mdx' ? ', without MDX imports or components' : extension === '.mdoc' ? ', without Markdoc tags' : '';
-          const skipping = `Skipping ${shown}: Violet reads Markdown pages ending in .md only.`;
-          if (!id) return `${skipping} Rename it to .md${without}, or remove it.`;
-          const at = taken.get(id);
-          // A page the site has there already, other than a section page a README.md would replace.
-          if (at && !sectionPages.has(id)) return `${skipping} ${pageUrl(id)} shows ${at} instead; remove it.`;
-          if (id === 'index') return `${skipping} The site has no home page: rename it to index.md${without}, or put an index.md at the top of the notes.`;
-          // A folder's own page is its README.md: an index.md in a folder is a page of its own, at /folder/index/.
-          return `${skipping} ${pageUrl(id)} ${at ? `shows ${at}` : 'has no page'}; make it the folder's page by renaming it to README.md${without}, or remove it.`;
-        });
 
         for (const chain of chains(placed)) {
           chain.forEach((page, i) => {
@@ -346,16 +374,30 @@ export function notesLoader(): Loader {
             if (after && !page.own.next) data.next = { link: pageUrl(after.id), label: after.title };
           });
         }
-        return { entries, warnings };
+        return { entries, taken, sectionPages };
       };
 
-      /** The warnings the last sync gave, so that in dev a change elsewhere does not repeat them. */
-      let warned = new Set<string>();
+      /** The warning last given for each page Violet does not read, so that in dev a change elsewhere does not repeat it. */
+      let warned = new Map<string, string>();
       /** Replace the store only once every page parsed, so a bad edit in dev keeps the last good pages. */
       const sync = async () => {
-        const { entries, warnings } = await collect();
-        for (const warning of warnings) if (!warned.has(warning)) logger.warn(warning);
-        warned = new Set(warnings);
+        const unread = findUnread();
+        let collected: Awaited<ReturnType<typeof collect>>;
+        try {
+          collected = await collect();
+        } catch (error) {
+          // The build stops here, before the addresses are known: name the pages it skipped anyway.
+          for (const page of unread) {
+            if (warned.has(page.shown)) continue;
+            logger.warn(skipping(page.shown));
+            warned.set(page.shown, skipping(page.shown));
+          }
+          throw error;
+        }
+        const { entries, taken, sectionPages } = collected;
+        const warnings = new Map(unread.map((page) => [page.shown, unreadWarning(page, taken, sectionPages)]));
+        for (const [shown, warning] of warnings) if (warned.get(shown) !== warning) logger.warn(warning);
+        warned = warnings;
         store.clear();
         for (const entry of entries) store.set(entry);
         logger.info(`${entries.length} pages`);
@@ -364,18 +406,18 @@ export function notesLoader(): Loader {
       await sync();
       if (watcher) {
         for (const { dir } of sources) watcher.add(dir);
-        const onChange = (changed: string) => {
-          // A page in a format Violet does not read changes its warnings, so it syncs too.
-          const page = changed.endsWith('.md') || UNREAD_EXTENSIONS.some((extension) => changed.endsWith(extension));
+        const onChange = (event: 'change' | 'add' | 'unlink') => (changed: string) => {
+          // Adding or removing a page Violet does not read changes the warnings; saving one changes nothing it shows.
+          const page = changed.endsWith('.md') || (event !== 'change' && isUnread(basename(changed), markdoc));
           const feeds = page || (options.extraPages?.feeds?.(changed) ?? false);
           if (!feeds || !sources.some(({ dir }) => changed.startsWith(dir))) return;
           sync().catch((error: Error) => {
             logger.error(`Kept the last good pages; fix and save again: ${error.message}`);
           });
         };
-        watcher.on('change', onChange);
-        watcher.on('add', onChange);
-        watcher.on('unlink', onChange);
+        watcher.on('change', onChange('change'));
+        watcher.on('add', onChange('add'));
+        watcher.on('unlink', onChange('unlink'));
       }
     },
   };

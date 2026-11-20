@@ -42,33 +42,40 @@ export function isSkipped(rel: string): boolean {
   return getOptions().skip.some((pattern) => pattern.test(rel));
 }
 
-/** Every file under `dir` whose name ends in one of `extensions`, skipping dotfiles and build folders. */
-function listEndingIn(dir: string, extensions: readonly string[]): string[] {
+/** Every file under `dir` whose name `wanted` accepts, skipping dotfiles and build folders. */
+function listWhere(dir: string, wanted: (name: string) => boolean): string[] {
   if (!existsSync(dir)) return [];
   const files: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
     const path = join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...listEndingIn(path, extensions));
-    else if (extensions.some((extension) => entry.name.endsWith(extension))) files.push(path);
+    if (entry.isDirectory()) files.push(...listWhere(path, wanted));
+    else if (wanted(entry.name)) files.push(path);
   }
   return files.sort();
 }
 
 /** Every Markdown file under `dir`, skipping dotfiles and build folders. */
 export function listMarkdown(dir: string): string[] {
-  return listEndingIn(dir, ['.md']);
+  return listWhere(dir, (name) => name.endsWith('.md'));
 }
 
+/** The page formats Starlight reads and Violet does not: Markdown's other extensions and MDX. */
+const UNREAD_EXTENSIONS = ['.markdown', '.mdown', '.mkdn', '.mkd', '.mdwn', '.mdx'];
+
 /**
- * The page formats Starlight reads and Violet does not: Markdown's other
- * extensions, MDX, and Markdoc when the site has it.
+ * Whether a file name is a page in a format Violet does not read: one of
+ * UNREAD_EXTENSIONS in any case, `.mdoc` when the site has Markdoc (as
+ * Starlight reads it only then), or `.md` in other than lower case.
  */
-export const UNREAD_EXTENSIONS = ['.markdown', '.mdown', '.mkdn', '.mkd', '.mdwn', '.mdx', '.mdoc'] as const;
+export function isUnread(name: string, markdoc: boolean): boolean {
+  const lower = name.toLowerCase();
+  return [...UNREAD_EXTENSIONS, ...(markdoc ? ['.mdoc'] : [])].some((extension) => lower.endsWith(extension)) || (lower.endsWith('.md') && !name.endsWith('.md'));
+}
 
 /** Every page under `dir` in a format Violet does not read, so the loader names them rather than dropping them unseen. */
-export function listUnread(dir: string): string[] {
-  return listEndingIn(dir, UNREAD_EXTENSIONS);
+export function listUnread(dir: string, markdoc: boolean): string[] {
+  return listWhere(dir, (name) => isUnread(name, markdoc));
 }
 
 /** Whether the site builds a page from this notes file: it is in the notes, not skipped, and not the landing page. */
