@@ -112,5 +112,5 @@ repo, such as `docs-site/`, next to the notes in `docs/`.
   belong with the [`require` option](../configuration/).
 - Point your coding agent at the [writing guide](../guide/writing/#pointing-your-agent-here).
 - Shape the home page: [`::sections{hide=...}`](../guide/shortcodes/#a-landing-page)
-  leaves folders out, and `template: splash` with a `hero` in its front
-  matter makes it a splash page.
+  leaves folders out, and the `hero` also takes an `image` and `actions`
+  (buttons), as in Starlight.
