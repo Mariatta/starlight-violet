@@ -190,6 +190,17 @@ describe('syncs that warn', { concurrency: true }, () => {
     assert.equal(status, 0, output);
     assert.ok(output.includes(`${skipping('../notes/work/prose.mdx')} Renaming it to .md would clash with ../notes/work/prose.md, at /violet-tests/work/prose/: give it another name ending in .md, without MDX imports or components, or remove it.`), output);
   });
+  test('an MDX page beside a Markdown file the skip option leaves out', async () => {
+    const { status, output } = await build('notes/work/DRAFT.mdx', '---\ntitle: Draft\n---\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/DRAFT.mdx')} Renaming it to .md would clash with ../notes/work/DRAFT.md: give it another name ending in .md, without MDX imports or components, or remove it.`), output);
+  });
+  test('a page with an upper-case extension beside a page that fails the build', async () => {
+    // On a filesystem that ignores case, Diagram.MD is the Diagram.md renaming it would make: no clash.
+    const { status, output } = await build('notes/work/Diagram.MD', '# Diagram\n', { also: { 'notes/work/unknown-task.md': '---\ntitle: Unknown task\n---\n\nSee :task[99].\n' }, step: 'sync' });
+    assert.notEqual(status, 0);
+    assert.ok(output.includes(`${skipping('../notes/work/Diagram.MD')} Rename it to .md, or remove it.`), output);
+  });
   test("a Markdown partial in the site's own pages", async () => {
     // Read as a page, its unknown task would fail the build.
     const { status, output } = await build('site/src/content/docs/_shared.md', '---\ntitle: Shared\n---\n\nSee :task[99].\n', { step: 'sync' });

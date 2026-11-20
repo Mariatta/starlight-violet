@@ -8,7 +8,7 @@
 import type { StarlightPlugin, StarlightUserConfig } from '@astrojs/starlight/types';
 import { isSatteriProcessor } from '@astrojs/markdown-satteri';
 import { existsSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
+import { basename, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listMarkdown, sections, sidebarItems, words } from './lib/notes';
 import { notesLinksPlugin } from './markdown/links';
@@ -146,7 +146,8 @@ function folderSidebar(resolved: ResolvedOptions): NonNullable<StarlightUserConf
   const sitePages = listMarkdown(resolved.siteDocsDir)
     .map((file) => relative(resolved.siteDocsDir, file).replace(/\.md$/, ''))
     // A site's own contract pages under guide/kinds/ join Violet's in "Page kinds".
-    .filter((slug) => slug !== 'index' && !slug.startsWith('guide/'));
+    // A page whose name starts with `_` is a partial, which the loader leaves out as Starlight does.
+    .filter((slug) => slug !== 'index' && !slug.startsWith('guide/') && !basename(slug).startsWith('_'));
   return [
     { label: 'Home', link: '/' },
     ...sections().map((dir) => ({ label: words(dir), items: sidebarItems(dir) })),

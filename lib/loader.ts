@@ -8,7 +8,7 @@
  */
 import type { Loader } from 'astro/loaders';
 import { basename, dirname, extname, join, relative } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ZodError } from 'astro/zod';
 import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../kinds';
@@ -106,7 +106,7 @@ interface Unread {
   /** An index or README page is its folder's page (or the home page); any other is a page of its own. */
   role: 'index' | 'readme' | 'page';
   id: string;
-  /** The `.md` file renaming it would make, and whether there is one already. */
+  /** The `.md` file renaming it would make, and whether one of that exact name is there already, a page or not. */
   twin: { shown: string; exists: boolean };
 }
 
@@ -143,7 +143,11 @@ function unreadFallback(page: Unread): string {
 function unreadWarning(page: Unread, taken: Map<string, string>, sectionPages: Set<string>): string {
   const { shown, extension, role, id } = page;
   const at = taken.get(id);
-  if (role === 'page') return pageAdvice(page, at && !sectionPages.has(id) ? `${at}, at ${pageUrl(id)}` : undefined);
+  if (role === 'page') {
+    // The file itself, a page or not (one left out by `skip` would be overwritten), or another page at that address.
+    const clash = page.twin.exists ? (at === page.twin.shown ? `${at}, at ${pageUrl(id)}` : page.twin.shown) : at && !sectionPages.has(id) ? `${at}, at ${pageUrl(id)}` : undefined;
+    return pageAdvice(page, clash);
+  }
   // A page the site has there already, other than a section page a README.md would replace.
   if (at && !sectionPages.has(id)) return `${skipping(shown)} ${pageUrl(id)} shows ${at} instead; remove it.`;
   if (id === 'index') return `${skipping(shown)} The site has no home page: rename it to index.md${without(extension)}, or put an index.md at the top of the notes.`;
@@ -203,7 +207,8 @@ export function notesLoader(): Loader {
               extension: extension.toLowerCase(),
               role: index ? 'index' : stem === 'README' ? 'readme' : 'page',
               id: index ? (folder === '.' ? 'index' : slugify(folder)) : idFor(twin, dir),
-              twin: { shown: relative(root, twin), exists: existsSync(twin) },
+              // By exact name: on a filesystem that ignores case, `Diagram.MD` is its own `Diagram.md`.
+              twin: { shown: relative(root, twin), exists: existsSync(twin) && readdirSync(dirname(twin)).includes(basename(twin)) },
             });
           }
         }
