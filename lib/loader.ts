@@ -132,14 +132,20 @@ export function notesLoader(): Loader {
          * home page as an `index.mdx`.
          */
         const unread: { shown: string; extension: string; id?: string }[] = [];
+        /** The section pages Violet made, which a folder's README.md would replace. */
+        const sectionPages = new Set<string>();
         for (const { dir, role } of sources) {
           if (role !== 'guide') {
             for (const file of listUnread(dir)) {
               if (role === 'notes' && isSkipped(notesRel(file))) continue;
+              // Starlight reads no page whose name starts with `_` either: it is a partial.
+              if (role === 'site' && basename(file).startsWith('_')) continue;
               const rel = relative(dir, file);
               const extension = extname(rel);
               const folder = dirname(rel);
-              const id = basename(rel, extension) !== 'index' ? undefined : folder === '.' ? 'index' : slugify(folder);
+              const stem = basename(rel, extension);
+              // The address an index or README page is for: a README's is the one it would get as README.md.
+              const id = stem === 'index' ? (folder === '.' ? 'index' : slugify(folder)) : stem === 'README' ? idFor(join(dir, folder, 'README.md'), dir) : undefined;
               unread.push({ shown: relative(root, file), extension, id });
             }
           }
@@ -301,6 +307,7 @@ export function notesLoader(): Loader {
           const id = slugify(section);
           if (taken.has(id) || (section === 'decisions' && options.kinds.includes('decision'))) continue;
           taken.set(id, `the ${section} section page`);
+          sectionPages.add(id);
           // A folder of planning pages, whatever it is called, gets its planning tables.
           const kindsHere = new Set(kindsBySection.get(section) ?? []);
           const planningOnly = kindsHere.size === 1 && kindsHere.has('planning');
@@ -322,15 +329,13 @@ export function notesLoader(): Loader {
         const warnings = unread.map(({ shown, extension, id }) => {
           const without = extension === '.mdx' ? ', without MDX imports or components' : extension === '.mdoc' ? ', without Markdoc tags' : '';
           const skipping = `Skipping ${shown}: Violet reads Markdown pages ending in .md only.`;
-          const at = id && taken.get(id);
-          if (id === 'index') {
-            return at
-              ? `${skipping} ${pageUrl(id)} shows ${at} instead; remove it.`
-              : `${skipping} The site has no home page: rename it to index.md${without}, or put an index.md at the top of the notes.`;
-          }
+          if (!id) return `${skipping} Rename it to .md${without}, or remove it.`;
+          const at = taken.get(id);
+          // A page the site has there already, other than a section page a README.md would replace.
+          if (at && !sectionPages.has(id)) return `${skipping} ${pageUrl(id)} shows ${at} instead; remove it.`;
+          if (id === 'index') return `${skipping} The site has no home page: rename it to index.md${without}, or put an index.md at the top of the notes.`;
           // A folder's own page is its README.md: an index.md in a folder is a page of its own, at /folder/index/.
-          if (id) return `${skipping} ${pageUrl(id)} ${at ? `shows ${at} instead` : 'has no page'}; a folder's own page is its README.md${without}.`;
-          return `${skipping} Rename it to .md${without}, or remove it.`;
+          return `${skipping} ${pageUrl(id)} ${at ? `shows ${at}` : 'has no page'}; make it the folder's page by renaming it to README.md${without}, or remove it.`;
         });
 
         for (const chain of chains(placed)) {

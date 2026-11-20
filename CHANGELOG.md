@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- A page in a format Starlight reads and Violet does not (`.mdx`, `.markdown`, `.mdown`, `.mkdn`, `.mkd`, `.mdwn`, or `.mdoc` with Markdoc) is named in a build warning, in the notes or in the site's `src/content/docs/`. Before, it was left out without a word, so the `index.mdx` home page of Starlight's template disappeared and the site had no home page. The warning says what to do, and for an `index` page, whether another page took its address; a folder's page comes from its `README.md`, so a folder's `index` page is pointed there. In `astro dev`, adding or removing such a file updates the warnings, and an edit elsewhere does not repeat them. The getting-started page now replaces the template's home page with an `index.md` in the notes.
+- A page in a format Starlight reads and Violet does not (`.mdx`, `.markdown`, `.mdown`, `.mkdn`, `.mkd`, `.mdwn`, or `.mdoc` with Markdoc) is named in a build warning, in the notes or in the site's `src/content/docs/`. Before, it was left out without a word, so the `index.mdx` home page of Starlight's template disappeared and the site had no home page. The warning says what to do: an `index` or `README` page is told which page has its address, or to become the home page or its folder's `README.md`. A site page whose name starts with `_` is a partial, as in Starlight, and gets no warning. In `astro dev`, adding or removing such a file updates the warnings, and an edit elsewhere does not repeat them. The getting-started page now replaces the template's home page with an `index.md` in the notes.
 
 ## 0.3.0 (2026-11-17)
 

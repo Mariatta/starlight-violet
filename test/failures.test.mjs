@@ -42,11 +42,12 @@ function run(command, args, options) {
 
 /**
  * Build a copy of the test site with one more file, at a path under the copy
- * (`notes/...` or `site/...`), and optionally one file fewer. `step: 'sync'`
+ * (`notes/...` or `site/...`), any files in `also`, and optionally one file
+ * fewer. `step: 'sync'`
  * runs only the content loader: a whole build of the copy fails in Vite, which
  * does not follow its linked node_modules, so a case that expects success syncs.
  */
-async function build(file, markdown, { without, step = 'build' } = {}) {
+async function build(file, markdown, { without, also = {}, step = 'build' } = {}) {
   const command = astro();
   const dir = mkdtempSync(join(tmpdir(), 'violet-test-'));
   try {
@@ -54,8 +55,10 @@ async function build(file, markdown, { without, step = 'build' } = {}) {
     symlinkSync(realpathSync(join(SITE, 'node_modules')), join(dir, 'site', 'node_modules'));
     cpSync(join(SITE, '../notes'), join(dir, 'notes'), { recursive: true });
     if (without) rmSync(join(dir, without));
-    mkdirSync(dirname(join(dir, file)), { recursive: true });
-    writeFileSync(join(dir, file), markdown);
+    for (const [path, text] of [[file, markdown], ...Object.entries(also)]) {
+      mkdirSync(dirname(join(dir, path)), { recursive: true });
+      writeFileSync(join(dir, path), text);
+    }
     return await run(process.execPath, [command, step], { cwd: join(dir, 'site'), timeout: TIMEOUT, env: { ...process.env, ASTRO_TELEMETRY_DISABLED: '1' } });
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -99,7 +102,22 @@ describe('syncs that warn', { concurrency: true }, () => {
   test("an MDX folder page, whose address Violet's section page takes", async () => {
     const { status, output } = await build('notes/work/index.mdx', '---\ntitle: Work\n---\n', { step: 'sync' });
     assert.equal(status, 0, output);
-    assert.ok(output.includes(`${skipping('../notes/work/index.mdx')} /violet-tests/work/ shows the work section page instead; a folder's own page is its README.md, without MDX imports or components.`), output);
+    assert.ok(output.includes(`${skipping('../notes/work/index.mdx')} /violet-tests/work/ shows the work section page; make it the folder's page by renaming it to README.md, without MDX imports or components, or remove it.`), output);
+  });
+  test('an MDX folder page beside the folder\'s README.md', async () => {
+    const { status, output } = await build('notes/work/index.mdx', '---\ntitle: Work\n---\n', { also: { 'notes/work/README.md': '# Work\n' }, step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/work/index.mdx')} /violet-tests/work/ shows ../notes/work/README.md instead; remove it.`), output);
+  });
+  test('an MDX README at the top of the notes, beside the home page', async () => {
+    const { status, output } = await build('notes/README.mdx', '# Notes\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/README.mdx')} /violet-tests/ shows ../notes/index.md instead; remove it.`), output);
+  });
+  test("an MDX partial in the site's own pages", async () => {
+    const { status, output } = await build('site/src/content/docs/_partial.mdx', 'Shared text.\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.doesNotMatch(output, /_partial\.mdx/);
   });
   test('an MDX page the skip option leaves out', async () => {
     const { status, output } = await build('notes/work/sketch.draft.mdx', '---\ntitle: Sketch\n---\n', { step: 'sync' });

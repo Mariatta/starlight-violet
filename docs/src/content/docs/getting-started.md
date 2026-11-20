@@ -102,7 +102,7 @@ repo, such as `docs-site/`, next to the notes in `docs/`.
    npx astro dev
    ```
 
-   Every Markdown file in `docs/` is a page, folders become sidebar groups,
+   Every Markdown file in `../docs/` is a page, folders become sidebar groups,
    the home page has a card for `runbooks`, and `deploy.md` shows its status
    and date in a header.
 :::
