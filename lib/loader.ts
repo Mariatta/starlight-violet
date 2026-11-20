@@ -14,7 +14,7 @@ import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../ki
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
-import { idFor, isSkipped, LANDING, isUnread, listMarkdown, listUnread, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
+import { idFor, isSkipped, isUnread, LANDING, listMarkdown, listUnread, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { isSplit, pageParts, readPlan, sectionHeadings, type Plan } from './plans';
 import { notFrontMatter, renderPlain } from '../markdown/plain';
 import { FIELD_HASH } from '../markdown/rows';
@@ -364,7 +364,6 @@ export function notesLoader(): Loader {
             rendered: await render(body, pathToFileURL(join(options.notesDir, section, 'index.md'))),
           });
         }
-
 
         for (const chain of chains(placed)) {
           chain.forEach((page, i) => {
