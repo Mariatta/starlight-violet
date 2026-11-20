@@ -65,8 +65,9 @@ const UNREAD_EXTENSIONS = ['.markdown', '.mdown', '.mkdn', '.mkd', '.mdwn', '.md
 
 /**
  * Whether a file name is a page in a format Violet does not read: one of
- * UNREAD_EXTENSIONS in any case, `.mdoc` when the site has Markdoc (as
- * Starlight reads it only then), or `.md` in other than lower case.
+ * UNREAD_EXTENSIONS, or `.mdoc` when the site has Markdoc (as Starlight
+ * reads it only then), which Starlight reads; or any of these or `.md` in
+ * other than lower case, which neither reads.
  */
 export function isUnread(name: string, markdoc: boolean): boolean {
   const lower = name.toLowerCase();
