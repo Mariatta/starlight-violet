@@ -144,10 +144,11 @@ describe('syncs that warn', { concurrency: true }, () => {
     assert.equal(status, 0, output);
     assert.ok(output.includes(`${skipping('../notes/Index.mdx')} /violet-tests/ shows ../notes/index.md instead; remove it.`), output);
   });
-  test('an MDX README in lower case beside the home page', async () => {
+  test('an MDX readme in lower case, which is a page of its own', async () => {
+    // Only README is a folder's page; readme.md would be one at /readme/, so renaming it is right.
     const { status, output } = await build('notes/readme.mdx', '# Notes\n', { step: 'sync' });
     assert.equal(status, 0, output);
-    assert.ok(output.includes(`${skipping('../notes/readme.mdx')} /violet-tests/ shows ../notes/index.md instead; remove it.`), output);
+    assert.ok(output.includes(`${skipping('../notes/readme.mdx')} Rename it to .md, without MDX imports or components, or remove it.`), output);
   });
   test('an MDX page with an upper-case extension', async () => {
     const { status, output } = await build('notes/work/Diagram.MDX', '---\ntitle: Diagram\n---\n', { step: 'sync' });

@@ -168,10 +168,10 @@ export function notesLoader(): Loader {
             const rel = relative(dir, file);
             const extension = extname(rel);
             const folder = dirname(rel);
-            // `Index.mdx` and `readme.mdx` are index and README pages too, whose renaming would clash as theirs does.
-            const stem = basename(rel, extension).toLowerCase();
-            // A README's address is the one it would get as README.md.
-            const id = stem === 'index' ? (folder === '.' ? 'index' : slugify(folder)) : stem === 'readme' ? idFor(join(dir, folder, 'README.md'), dir) : undefined;
+            const stem = basename(rel, extension);
+            // `Index.mdx` is an index page too: as Index.md its address would be the same. A README is
+            // one only as `README`, as idFor has it; `readme.md` is a page of its own.
+            const id = stem.toLowerCase() === 'index' ? (folder === '.' ? 'index' : slugify(folder)) : stem === 'README' ? idFor(join(dir, folder, 'README.md'), dir) : undefined;
             unread.push({ shown: relative(root, file), extension: extension.toLowerCase(), id });
           }
         }

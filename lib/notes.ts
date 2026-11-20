@@ -293,8 +293,7 @@ export function sidebarItems(section: string): SidebarItem[] {
   const folders = [...new Set(rests.filter((rest) => rest.includes('/')).map((rest) => rest.split('/')[0]))];
   if (folders.length === 0) return [{ autogenerate: { directory: section } }];
   // The section's own page (its README, or the one Violet makes) leads the group.
-  // The decision kind's list has /decisions/, whatever the folder's case, as the loader has it.
-  const sectionPage: SidebarItem[] = slugify(section) === 'decisions' && getOptions().kinds.includes('decision') ? [] : [hasReadme(section) ? { slug: section } : { slug: section, label: 'Overview' }];
+  const sectionPage: SidebarItem[] = section === 'decisions' && getOptions().kinds.includes('decision') ? [] : [hasReadme(section) ? { slug: section } : { slug: section, label: 'Overview' }];
   return [
     ...sectionPage,
     ...folders.sort().map((folder) => ({ label: words(folder), items: [{ autogenerate: { directory: `${section}/${folder}` } }] })),
