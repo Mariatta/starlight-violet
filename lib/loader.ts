@@ -132,7 +132,7 @@ export function notesLoader(): Loader {
           if (role !== 'guide') {
             for (const file of listMdx(dir)) {
               if (role === 'notes' && isSkipped(notesRel(file))) continue;
-              logger.warn(`Skipping ${relative(root, file)}: Violet reads Markdown (.md) pages, not MDX. Rename it to .md, without MDX imports or components.`);
+              logger.warn(`Skipping ${relative(root, file)}: Violet reads Markdown (.md) pages, not MDX. Rename it to .md, without MDX imports or components, or remove it.`);
               if (relative(dir, file) === 'index.mdx') mdxHome = relative(root, file);
             }
           }

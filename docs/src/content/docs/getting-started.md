@@ -106,5 +106,6 @@ repo, such as `docs-site/`, next to the notes in `docs/`.
 - Turn on the [kinds](../kinds/) you need, and require them where they
   belong with the [`require` option](../configuration/).
 - Point your coding agent at the [writing guide](../guide/writing/#pointing-your-agent-here).
-- Make the home page a landing page with
-  [`::sections`](../guide/shortcodes/#a-landing-page).
+- Fill in the home page: [`::sections`](../guide/shortcodes/#a-landing-page)
+  takes `hide=`, and `template: splash` with a `hero` in its front matter
+  makes it a splash page.

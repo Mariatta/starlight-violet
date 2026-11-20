@@ -1,8 +1,9 @@
 /**
  * Notes the build must refuse, each with a message naming the page, and
  * pages it must warn about. Each case builds a copy of the test site and its
- * notes, plus one page, in a folder of its own, so test/site and its generated files are never
- * touched while the other tests read them. The cases build at the same time.
+ * notes, plus one page, in a folder of its own, so test/site and its
+ * generated files are never touched while the other tests read them. The
+ * cases build at the same time.
  */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -93,9 +94,14 @@ describe('syncs that warn', { concurrency: true }, () => {
     assert.equal(status, 0, output);
     assert.match(output, /The site has no home page: \.\.\/notes\/index\.mdx is MDX\. Rename it to index\.md/);
   });
+  test('an MDX page the skip option leaves out', async () => {
+    const { status, output } = await build('notes/work/sketch.draft.mdx', '---\ntitle: Sketch\n---\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.doesNotMatch(output, /sketch\.draft\.mdx/);
+  });
   test('an MDX page in the notes', async () => {
     const { status, output } = await build('notes/work/diagram.mdx', '---\ntitle: Diagram\n---\n', { step: 'sync' });
     assert.equal(status, 0, output);
-    assert.match(output, /Skipping \.\.\/notes\/work\/diagram\.mdx: Violet reads Markdown \(\.md\) pages, not MDX\. Rename it/);
+    assert.match(output, /Skipping \.\.\/notes\/work\/diagram\.mdx: Violet reads Markdown \(\.md\) pages, not MDX\. Rename it to \.md, without MDX imports or components, or remove it\./);
   });
 });
