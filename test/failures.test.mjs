@@ -47,7 +47,7 @@ function run(command, args, options) {
  * runs only the content loader: a whole build of the copy fails in Vite, which
  * does not follow its linked node_modules, so a case that expects success syncs.
  */
-async function build(file, markdown, { without, also = {}, step = 'build' } = {}) {
+async function build(file, markdown, { without, also = {}, violet, step = 'build' } = {}) {
   const command = astro();
   const dir = mkdtempSync(join(tmpdir(), 'violet-test-'));
   try {
@@ -55,6 +55,11 @@ async function build(file, markdown, { without, also = {}, step = 'build' } = {}
     symlinkSync(realpathSync(join(SITE, 'node_modules')), join(dir, 'site', 'node_modules'));
     cpSync(join(SITE, '../notes'), join(dir, 'notes'), { recursive: true });
     if (without) rmSync(join(dir, without));
+    // Options added last to the site's Violet options, as source text, so they win over its own.
+    if (violet) {
+      const config = join(dir, 'site', 'astro.config.mjs');
+      writeFileSync(config, readFileSync(config, 'utf8').replace('sidebar: false,', `sidebar: false, ${violet},`));
+    }
     for (const [path, text] of [[file, markdown], ...Object.entries(also)]) {
       mkdirSync(dirname(join(dir, path)), { recursive: true });
       writeFileSync(join(dir, path), text);
@@ -212,6 +217,16 @@ describe('syncs that warn', { concurrency: true }, () => {
     const { status, output } = await build('notes/README.mdx', '# Notes\n', { without: 'notes/index.md', also: { 'notes/readme.md': '# Read me\n' }, step: 'sync' });
     assert.equal(status, 0, output);
     assert.ok(output.includes(`${skipping('../notes/README.mdx')} The site has no home page: rename it to index.md, without MDX imports or components, or put an index.md at the top of the notes.`), output);
+  });
+  test('an MDX README at the top of the notes, filed under a folder by looseFiles', async () => {
+    const { status, output } = await build('notes/README.mdx', '# Notes\n', { violet: "looseFiles: 'misc'", step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/README.mdx')} /violet-tests/misc/ has no page; make it the folder's page by renaming it to README.md, without MDX imports or components, or remove it.`), output);
+  });
+  test('an MDX home page beside an index.md the skip option leaves out', async () => {
+    const { status, output } = await build('notes/README.mdx', '# Notes\n', { violet: "skip: ['index.md']", step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.ok(output.includes(`${skipping('../notes/README.mdx')} The site has no home page, and renaming it to index.md would clash with ../notes/index.md: rename that file first, or remove this one.`), output);
   });
   test('an MDX page beside a Markdown file the skip option leaves out, named in another case', async () => {
     const { status, output } = await build('notes/work/draft.mdx', '---\ntitle: Draft\n---\n', { step: 'sync' });
