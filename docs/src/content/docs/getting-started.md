@@ -56,7 +56,28 @@ repo, such as `docs-site/`, next to the notes in `docs/`.
    };
    ```
 
-5. Give a note a kind. In `docs/deploy.md`:
+5. Replace the template's home page. Starlight's template makes it an MDX
+   file, `src/content/docs/index.mdx`, and Violet reads Markdown (`.md`)
+   pages only, so the build skips it with a warning and the site has no
+   home page. Remove it:
+
+   ```sh
+   rm src/content/docs/index.mdx
+   ```
+
+   and write the home page with the notes, in `docs/index.md`:
+
+   ```markdown
+   ---
+   title: Project notes
+   ---
+
+   ::sections
+   ```
+
+   `::sections` gives each top-level folder of the notes a card.
+
+6. Give a note a kind. In `docs/deploy.md`:
 
    ```markdown
    ---
@@ -70,7 +91,7 @@ repo, such as `docs-site/`, next to the notes in `docs/`.
    ...
    ```
 
-6. Run the site:
+7. Run the site:
 
    ```sh
    npx astro dev

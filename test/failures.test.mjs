@@ -1,7 +1,7 @@
 /**
- * Notes the build must refuse, each with a message naming the page. Each
- * case builds a copy of the test site and its notes, plus one bad page, in
- * a folder of its own, so test/site and its generated files are never
+ * Notes the build must refuse, each with a message naming the page, and
+ * pages it must warn about. Each case builds a copy of the test site and its
+ * notes, plus one page, in a folder of its own, so test/site and its generated files are never
  * touched while the other tests read them. The cases build at the same time.
  */
 import assert from 'node:assert/strict';
@@ -39,16 +39,23 @@ function run(command, args, options) {
   });
 }
 
-async function build(file, markdown) {
+/**
+ * Build a copy of the test site with one more file, at a path under the copy
+ * (`notes/...` or `site/...`), and optionally one file fewer. `step: 'sync'`
+ * runs only the content loader: a whole build of the copy fails in Vite, which
+ * does not follow its linked node_modules, so a case that expects success syncs.
+ */
+async function build(file, markdown, { without, step = 'build' } = {}) {
   const command = astro();
   const dir = mkdtempSync(join(tmpdir(), 'violet-test-'));
   try {
     cpSync(SITE, join(dir, 'site'), { recursive: true, filter: (from) => !SKIP.has(from.slice(SITE.length + 1).split('/')[0]) });
     symlinkSync(realpathSync(join(SITE, 'node_modules')), join(dir, 'site', 'node_modules'));
     cpSync(join(SITE, '../notes'), join(dir, 'notes'), { recursive: true });
-    mkdirSync(dirname(join(dir, 'notes', file)), { recursive: true });
-    writeFileSync(join(dir, 'notes', file), markdown);
-    return await run(process.execPath, [command, 'build'], { cwd: join(dir, 'site'), timeout: TIMEOUT, env: { ...process.env, ASTRO_TELEMETRY_DISABLED: '1' } });
+    if (without) rmSync(join(dir, without));
+    mkdirSync(dirname(join(dir, file)), { recursive: true });
+    writeFileSync(join(dir, file), markdown);
+    return await run(process.execPath, [command, step], { cwd: join(dir, 'site'), timeout: TIMEOUT, env: { ...process.env, ASTRO_TELEMETRY_DISABLED: '1' } });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -56,19 +63,39 @@ async function build(file, markdown) {
 
 describe('builds that fail', { concurrency: true }, () => {
   test('a kind page missing a required section', async () => {
-    const { status, output } = await build('work/empty-checklist.md', '---\nkind: checklist\ntitle: Empty\nstatus: open\nupdated: 2026-11-17\n---\n\n## Whats next\n');
+    const { status, output } = await build('notes/work/empty-checklist.md', '---\nkind: checklist\ntitle: Empty\nstatus: open\nupdated: 2026-11-17\n---\n\n## Whats next\n');
     assert.notEqual(status, 0);
     assert.match(output, /empty-checklist\.md is a checklist and must have these level-two sections: What's next\. Missing: What's next\./);
   });
   test('a :task that the plan does not declare', async () => {
-    const { status, output } = await build('work/unknown-task.md', '---\ntitle: Unknown task\n---\n\nSee :task[99].\n');
+    const { status, output } = await build('notes/work/unknown-task.md', '---\ntitle: Unknown task\n---\n\nSee :task[99].\n');
     assert.notEqual(status, 0);
     assert.match(output, /unknown-task\.md: :task\[99\] matches no task/);
   });
   test('a plan heading for a task the front matter lacks', async () => {
     const plan = '---\nkind: planning\ntype: plan\nstatus: approved\nupdated: 2026-11-17\ntasks:\n  - { number: 1 }\n---\n\n# Other plan\n\n## Task 1: One\n\n## Task 7: Not declared\n';
-    const { status, output } = await build('other/PLAN.md', plan);
+    const { status, output } = await build('notes/other/PLAN.md', plan);
     assert.notEqual(status, 0);
     assert.match(output, /other\/PLAN\.md: the heading for task 7 is not in the front matter's tasks/);
+  });
+});
+
+describe('syncs that warn', { concurrency: true }, () => {
+  test("an MDX home page in the site's own pages", async () => {
+    const { status, output } = await build('site/src/content/docs/index.mdx', "---\ntitle: Welcome\n---\n\nimport { Card } from '@astrojs/starlight/components';\n", { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.match(output, /Skipping src\/content\/docs\/index\.mdx: Violet reads Markdown \(\.md\) pages, not MDX\./);
+    // The test site's notes have an index.md, so it still has a home page.
+    assert.doesNotMatch(output, /no home page/);
+  });
+  test('an MDX home page and no other', async () => {
+    const { status, output } = await build('notes/index.mdx', '---\ntitle: Welcome\n---\n', { without: 'notes/index.md', step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.match(output, /The site has no home page: \.\.\/notes\/index\.mdx is MDX\. Rename it to index\.md/);
+  });
+  test('an MDX page in the notes', async () => {
+    const { status, output } = await build('notes/work/diagram.mdx', '---\ntitle: Diagram\n---\n', { step: 'sync' });
+    assert.equal(status, 0, output);
+    assert.match(output, /Skipping \.\.\/notes\/work\/diagram\.mdx: Violet reads Markdown \(\.md\) pages, not MDX\. Rename it/);
   });
 });

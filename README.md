@@ -87,7 +87,9 @@ export const collections = { docs: defineCollection({ loader: notesLoader(), sch
 ```
 
 The site's own pages in `src/content/docs/` (a home page, a writing guide)
-are read alongside the notes.
+are read alongside the notes. They are Markdown: Violet does not read MDX,
+so replace the `index.mdx` home page Starlight's template comes with by an
+`index.md`, there or at the top of the notes.
 
 It needs Astro 7 with its default Sätteri Markdown processor and Starlight
 0.42 or later.

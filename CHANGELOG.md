@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- An `.mdx` file in the notes or in the site's `src/content/docs/` is named in a build warning, since Violet reads Markdown pages only. Before, it was left out without a word, so the `index.mdx` home page of Starlight's template disappeared and the site had no home page. When no other home page takes its place, the build says so. The getting-started page now replaces that home page with an `index.md` in the notes.
+
 ## 0.3.0 (2026-11-17)
 
 - The decision kind's contract says what superseding or amending a decision does to it: one superseded whole has its `date` moved to the day it was superseded, with the day it was locked kept in `history`; one superseded in part, or amended, stays `locked`, keeps its `date`, and names the part in `superseded_by` or `amended_by`.

@@ -14,7 +14,7 @@ import { getKind, isKind, progressBar, sectionProblem, statusBadge } from '../ki
 import { PLANNING_TYPES } from '../kinds/planning';
 import { getOptions, KIND_NAMES, PACKAGE } from '../options';
 import { addHeadingLinks } from './headings';
-import { idFor, isSkipped, LANDING, listMarkdown, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
+import { idFor, isSkipped, LANDING, listMarkdown, listMdx, notesInSiteRepo, notesPages, notesRel, pageUrl, readPage, sectionDescription, sections, sitePath, slugify, sourceUrl, splitTitle, words } from './notes';
 import { isSplit, pageParts, readPlan, sectionHeadings, type Plan } from './plans';
 import { notFrontMatter, renderPlain } from '../markdown/plain';
 import { FIELD_HASH } from '../markdown/rows';
@@ -126,7 +126,16 @@ export function notesLoader(): Loader {
         const entries: any[] = [];
         const placed: Placed[] = [];
         const taken = new Map<string, string>();
+        /** An `index.mdx` skipped above: Starlight's template ships its home page as one. */
+        let mdxHome: string | undefined;
         for (const { dir, role } of sources) {
+          if (role !== 'guide') {
+            for (const file of listMdx(dir)) {
+              if (role === 'notes' && isSkipped(notesRel(file))) continue;
+              logger.warn(`Skipping ${relative(root, file)}: Violet reads Markdown (.md) pages, not MDX. Rename it to .md, without MDX imports or components.`);
+              if (relative(dir, file) === 'index.mdx') mdxHome = relative(root, file);
+            }
+          }
           for (const file of listMarkdown(dir)) {
             const rel = role === 'notes' ? sitePath(file, dir) : relative(dir, file);
             if (role === 'notes' && isSkipped(notesRel(file))) continue;
@@ -301,6 +310,10 @@ export function notesLoader(): Loader {
             digest: generateDigest(body + JSON.stringify(data)),
             rendered: await render(body, pathToFileURL(join(options.notesDir, section, 'index.md'))),
           });
+        }
+
+        if (mdxHome && !taken.has('index')) {
+          logger.warn(`The site has no home page: ${mdxHome} is MDX. Rename it to index.md, or put an index.md at the top of the notes.`);
         }
 
         for (const chain of chains(placed)) {
