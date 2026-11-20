@@ -59,7 +59,7 @@ async function build(file, markdown, { without, also = {}, violet, step = 'build
     if (violet) {
       const config = join(dir, 'site', 'astro.config.mjs');
       const text = readFileSync(config, 'utf8');
-      if (!text.includes('sidebar: false,')) throw new Error(`${config} has no "sidebar: false," to add Violet options after`);
+      if (!text.includes('sidebar: false,')) throw new Error(`${join(SITE, 'astro.config.mjs')} has no "sidebar: false," to add Violet options after`);
       writeFileSync(config, text.replace('sidebar: false,', `sidebar: false, ${violet},`));
     }
     for (const [path, text] of [[file, markdown], ...Object.entries(also)]) {
